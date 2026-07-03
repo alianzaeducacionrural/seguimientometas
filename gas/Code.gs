@@ -4,6 +4,7 @@
 
 const HOJAS = {
   PROYECTOS:                     'proyectos',
+  ACTIVIDADES:                   'actividades',
   ALIADOS:                       'aliados',
   CONVENIOS:                     'convenios',
   CONVENIO_PROYECTOS:            'convenio_proyectos',
@@ -17,6 +18,9 @@ const HOJAS = {
 // Fuente de verdad: PROYECTO_SEGUIMIENTO_CONVENIOS.md → "Modelo de datos".
 const ENCABEZADOS = {
   [HOJAS.PROYECTOS]: ['id', 'nombre', 'lideres_ids'],
+  // Catálogo de actividades de cada proyecto: en el alta de metas primero
+  // se elige proyecto y las actividades ofrecidas dependen de él.
+  [HOJAS.ACTIVIDADES]: ['id', 'proyecto_id', 'nombre'],
   [HOJAS.ALIADOS]: ['id', 'nombre'],
   [HOJAS.CONVENIOS]: [
     'id', 'nombre', 'aliado_id', 'anio_vigencia',
@@ -27,7 +31,7 @@ const ENCABEZADOS = {
   // usuarios.proyectos_ids en Fase 1) para no mantener dos hojas en sync.
   [HOJAS.CONVENIO_PROYECTOS]: ['convenio_id', 'proyecto_id'],
   [HOJAS.METAS]: [
-    'id', 'convenio_id', 'descripcion', 'cantidad_meta', 'tipo',
+    'id', 'convenio_id', 'proyecto_id', 'descripcion', 'cantidad_meta', 'tipo',
     'cantidad_realizada',
   ],
   [HOJAS.FOCALIZACION]: [
@@ -46,6 +50,7 @@ const ENCABEZADOS = {
 // Mapea el nombre usado por la API (?action=, {entidad:}) a su hoja.
 const ENTIDADES_CRUD = {
   proyectos: HOJAS.PROYECTOS,
+  actividades: HOJAS.ACTIVIDADES,
   aliados: HOJAS.ALIADOS,
   usuarios: HOJAS.USUARIOS,
   convenios: HOJAS.CONVENIOS,
@@ -54,10 +59,14 @@ const ENTIDADES_CRUD = {
   asignaciones_sin_focalizacion: HOJAS.ASIGNACIONES_SIN_FOCALIZACION,
 };
 
-// Catálogo externo de Municipio/Institución/Sede (solo lectura, no se duplica).
+// Catálogo externo (solo lectura, no se duplica): el mismo archivo tiene la
+// pestaña Mun/IE/Sedes y la pestaña de padrinos (nombre + correo en las
+// columnas A:B). La de padrinos se ubica por gid y no por nombre, para que
+// un cambio de nombre de la pestaña no rompa la integración.
 const CATALOGO_EXTERNO = {
   SHEET_ID: '1sDwOuJk0x1mO6lxJbzzWTd088SOg7fAWEuXSZEM1Eog',
   HOJA: 'Mun/IE/Sedes',
+  GID_PADRINOS: 1978199793,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -69,6 +78,7 @@ function doGet(e) {
   try {
     if (action === 'ping') return responder({ ok: true, mensaje: 'hola mundo' });
     if (action === 'catalogoIE') return responder(getCatalogoIE());
+    if (action === 'catalogoPadrinos') return responder(getCatalogoPadrinos());
     if (action === 'liderConvenios') return responder(getLiderConvenios(e.parameter.token));
     if (action === 'padrinoResumen') return responder(getPadrinoResumen(e.parameter.token));
     if (ENTIDADES_CRUD[action]) {
@@ -83,6 +93,7 @@ function doGet(e) {
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
+    if (body.accion === 'importarPadrinos') return responder(importarPadrinosCatalogo());
     if (body.accion === 'crear') return responder(crearRegistro(body.entidad, body.datos || {}));
     if (body.accion === 'editar') return responder(editarRegistro(body.entidad, body.id, body.datos || {}));
     if (body.accion === 'eliminar') return responder(eliminarRegistro(body.entidad, body.id));
@@ -102,8 +113,36 @@ function responder(datos) {
 // CRUD genérico — proyectos, aliados, usuarios (Fase 1)
 // ─────────────────────────────────────────────────────────────
 
+// Alinea la hoja física con ENCABEZADOS cuando el esquema crece: expande el
+// ancho si faltan columnas y reescribe la fila de encabezados. Con datos ya
+// cargados esto solo es seguro si las columnas nuevas van AL FINAL o si la
+// hoja está vacía — una reordenación con datos requiere migración manual.
+function asegurarEsquema(hoja, encabezados) {
+  if (hoja.getMaxColumns() < encabezados.length) {
+    hoja.insertColumnsAfter(hoja.getMaxColumns(), encabezados.length - hoja.getMaxColumns());
+  }
+  const actuales = hoja.getRange(1, 1, 1, encabezados.length).getValues()[0];
+  if (encabezados.some((campo, i) => String(actuales[i]).trim() !== campo)) {
+    hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]);
+  }
+}
+
+// Devuelve la pestaña de una entidad, creándola con sus encabezados si no
+// existe todavía (permite agregar hojas nuevas a HOJAS/ENCABEZADOS sin
+// pasos manuales en el Sheets).
+function hojaDe(nombreHoja) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let hoja = ss.getSheetByName(nombreHoja);
+  if (!hoja) {
+    hoja = ss.insertSheet(nombreHoja);
+    hoja.setFrozenRows(1);
+  }
+  asegurarEsquema(hoja, ENCABEZADOS[nombreHoja]);
+  return hoja;
+}
+
 function listarFilas(nombreHoja) {
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombreHoja);
+  const hoja = hojaDe(nombreHoja);
   const encabezados = ENCABEZADOS[nombreHoja];
   const lastRow = hoja.getLastRow();
   if (lastRow < 2) return [];
@@ -122,7 +161,7 @@ function crearRegistro(entidad, datos) {
   const nombreHoja = ENTIDADES_CRUD[entidad];
   if (!nombreHoja) return { ok: false, error: 'Entidad no válida' };
 
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombreHoja);
+  const hoja = hojaDe(nombreHoja);
   const encabezados = ENCABEZADOS[nombreHoja];
   const registro = Object.assign({}, datos, { id: String(siguienteId(hoja)) });
 
@@ -144,7 +183,7 @@ function editarRegistro(entidad, id, cambios) {
   const nombreHoja = ENTIDADES_CRUD[entidad];
   if (!nombreHoja) return { ok: false, error: 'Entidad no válida' };
 
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombreHoja);
+  const hoja = hojaDe(nombreHoja);
   const encabezados = ENCABEZADOS[nombreHoja];
   const fila = encontrarFilaPorId(hoja, id);
   if (!fila) return { ok: false, error: 'No encontrado' };
@@ -174,7 +213,7 @@ function eliminarRegistro(entidad, id) {
   const nombreHoja = ENTIDADES_CRUD[entidad];
   if (!nombreHoja) return { ok: false, error: 'Entidad no válida' };
 
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombreHoja);
+  const hoja = hojaDe(nombreHoja);
   const fila = encontrarFilaPorId(hoja, id);
   if (!fila) return { ok: false, error: 'No encontrado' };
 
@@ -257,6 +296,67 @@ function getCatalogoIE() {
     instituciones: mapaDeSetsAArrays(institucionesPorMunicipio),
     sedes: mapaDeSetsAArrays(sedesPorInstitucion),
   };
+}
+
+// Lista de padrinos (nombre + correo) desde las columnas A:B de la pestaña
+// de padrinos del catálogo externo. Es la fuente de verdad para el alta de
+// usuarios con rol padrino: en el panel se eligen de esta lista en vez de
+// digitarlos, y el correo se llena solo.
+function getCatalogoPadrinos() {
+  const ss = SpreadsheetApp.openById(CATALOGO_EXTERNO.SHEET_ID);
+  const hoja = ss.getSheets().find(h => h.getSheetId() === CATALOGO_EXTERNO.GID_PADRINOS);
+  if (!hoja) return { ok: false, error: 'No se encontró la pestaña de padrinos en el catálogo' };
+
+  const lastRow = hoja.getLastRow();
+  if (lastRow < 2) return { ok: true, padrinos: [] };
+
+  const filas = hoja.getRange(2, 1, lastRow - 1, 2).getValues();
+  const padrinos = filas
+    .map(fila => ({ nombre: String(fila[0]).trim(), correo: String(fila[1]).trim() }))
+    .filter(p => p.nombre && p.correo)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+  return { ok: true, padrinos };
+}
+
+// Carga masiva: crea un usuario rol "padrino" (con su token de magic-link)
+// por cada padrino del catálogo que aún no exista en la hoja usuarios.
+// Deduplica por correo (case-insensitive), así que es idempotente: volver a
+// ejecutarla solo agrega los padrinos nuevos que hayan sumado al catálogo.
+function importarPadrinosCatalogo() {
+  const catalogo = getCatalogoPadrinos();
+  if (!catalogo.ok) return catalogo;
+
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.USUARIOS);
+  const encabezados = ENCABEZADOS[HOJAS.USUARIOS];
+  const correosExistentes = new Set(
+    listarFilas(HOJAS.USUARIOS).map(u => String(u.correo).trim().toLowerCase())
+  );
+  const tokens = tokensExistentes(hoja);
+  let creados = 0;
+
+  catalogo.padrinos.forEach(p => {
+    if (correosExistentes.has(p.correo.toLowerCase())) return;
+
+    const registro = {
+      id: String(siguienteId(hoja)),
+      nombre: p.nombre,
+      correo: p.correo,
+      rol: 'padrino',
+      proyectos_ids: '',
+      token: generarToken(tokens),
+    };
+    tokens.add(registro.token);
+    correosExistentes.add(p.correo.toLowerCase());
+
+    const filaIndex = hoja.getLastRow() + 1;
+    encabezados.forEach((campo, i) => {
+      escribirValor(hoja, filaIndex, i + 1, campo, registro[campo] !== undefined ? registro[campo] : '');
+    });
+    creados++;
+  });
+
+  return { ok: true, creados, omitidos: catalogo.padrinos.length - creados };
 }
 
 function mapaDeSetsAArrays(mapaDeSets) {
@@ -379,6 +479,9 @@ function setupHojas() {
     }
 
     const encabezados = ENCABEZADOS[nombre];
+    if (hoja.getMaxColumns() < encabezados.length) {
+      hoja.insertColumnsAfter(hoja.getMaxColumns(), encabezados.length - hoja.getMaxColumns());
+    }
     hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]);
     hoja.setFrozenRows(1);
 

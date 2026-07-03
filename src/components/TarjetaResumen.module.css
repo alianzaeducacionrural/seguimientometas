@@ -1,24 +1,54 @@
+/* Tarjeta de convenio/padrino con franja lateral en el color de la entidad
+   (variable --acento, la pone el JSX con colorPorId). Tarjeta blanca con
+   cabecera apenas tintada — la identidad la da la franja, no un bloque de
+   color sólido. */
+
 .card {
-  border: 1px solid #e1e0d9;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-left: 4px solid var(--acento, var(--cafetal));
+  border-radius: var(--radio);
+  margin-bottom: 1.25rem;
   overflow: hidden;
+  animation: aparecer 0.25s ease-out;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.card:hover {
+  box-shadow: var(--sombra-flotante);
+  transform: translateY(-2px);
+}
+
+.headerConAvatar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
 }
 
 .header {
-  padding: 0.75rem 1rem;
-  color: #fff;
+  padding: 0.8rem 1.1rem;
+  background: color-mix(in srgb, var(--acento, var(--cafetal)) 5%, var(--superficie));
+  border-bottom: 1px solid var(--borde-suave);
 }
 
 .header h3 {
-  margin: 0 0 0.15rem;
-  font-size: 1.05rem;
+  margin: 0 0 0.1rem;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .header p {
   margin: 0;
-  font-size: 0.85rem;
-  opacity: 0.9;
+  font-size: 0.84rem;
+  color: var(--tinta-2);
+}
+
+.sinMetas {
+  padding: 0.9rem 1.1rem;
+  margin: 0;
+  color: var(--tinta-3);
+  font-size: 0.9rem;
 }
 
 .tablaWrap {
@@ -33,15 +63,20 @@
 .tabla th,
 .tabla td {
   text-align: left;
-  padding: 0.5rem 1rem;
-  border-top: 1px solid #e1e0d9;
-  font-size: 0.9rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.88rem;
+}
+
+.tabla td {
+  border-top: 1px solid var(--borde-suave);
 }
 
 .tabla th {
-  background: #f9f9f7;
-  color: #52514e;
-  font-weight: 600;
+  color: var(--tinta-3);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .numero {
@@ -58,21 +93,34 @@
 
 .track {
   flex: 1;
-  height: 8px;
-  border-radius: 4px;
-  background: #e1e0d9;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--superficie-2);
   overflow: hidden;
 }
 
 .fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: 5px;
+  transition: width 0.5s ease-out;
 }
 
 .pct {
   font-variant-numeric: tabular-nums;
-  font-size: 0.85rem;
-  color: #52514e;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--tinta-2);
   width: 3.2em;
   text-align: right;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

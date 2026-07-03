@@ -34,3 +34,9 @@ export function editar(entidad, id, datos) {
 export function eliminar(entidad, id) {
   return apiPost({ accion: 'eliminar', entidad, id })
 }
+
+// Crea usuarios rol "padrino" para todos los padrinos del catálogo externo
+// que aún no existan (deduplica por correo en el servidor — idempotente).
+export function importarPadrinos() {
+  return apiPost({ accion: 'importarPadrinos' })
+}

@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { apiGet } from '../utils/api'
 import EstadoFocalizacion from '../components/EstadoFocalizacion'
 import { formatearFecha } from '../utils/formato'
+import { AvisoError, Cargando, Vacio } from '../components/Estado'
+import MarcaLogo from '../components/MarcaLogo'
 import estilos from './PadrinoPanel.module.css'
 
 // Vista pensada para celular (el padrino la revisa en campo): una sola
@@ -24,8 +26,8 @@ export default function PadrinoPanel() {
       .finally(() => setCargando(false))
   }, [token])
 
-  if (cargando) return <div className={estilos.envoltorio}><p>Cargando…</p></div>
-  if (error) return <div className={estilos.envoltorio}><p style={{ color: 'crimson' }}>{error}</p></div>
+  if (cargando) return <div className={estilos.envoltorio}><Cargando /></div>
+  if (error) return <div className={estilos.envoltorio}><AvisoError>{error}</AvisoError></div>
 
   const { usuario, focalizacion, asignaciones } = datos
   const totalAsignadas = focalizacion.length + asignaciones.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
@@ -33,16 +35,24 @@ export default function PadrinoPanel() {
     + asignaciones.reduce((s, a) => s + (Number(a.cantidad_realizada) || 0), 0)
 
   return (
+    <>
+    <div className="banda-persona banda-angosta">
+      <div className="banda-persona-interior">
+        <MarcaLogo invertido />
+        <h1>Hola, {usuario.nombre}</h1>
+        <span className="panel-persona-rol">Padrino</span>
+      </div>
+      <p className="banda-persona-sub">Tus visitas asignadas, de un vistazo.</p>
+    </div>
     <div className={estilos.envoltorio}>
-      <h1>Hola, {usuario.nombre}</h1>
-      <div className={estilos.filaNumeros}>
-        <div className={estilos.numero}><span>{totalAsignadas}</span><span>Asignadas</span></div>
-        <div className={estilos.numero}><span>{totalRealizadas}</span><span>Realizadas</span></div>
+      <div className={estilos.resumen}>
+        <div><strong>{totalAsignadas}</strong><span>Asignadas</span></div>
+        <div><strong>{totalRealizadas}</strong><span>Realizadas</span></div>
       </div>
 
       <h2>Tus visitas focalizadas</h2>
       {focalizacion.length === 0 ? (
-        <p>No tienes sedes focalizadas asignadas.</p>
+        <Vacio>No tienes sedes focalizadas asignadas.</Vacio>
       ) : (
         focalizacion.map((f) => (
           <div key={f.id} className={estilos.tarjeta}>
@@ -58,7 +68,7 @@ export default function PadrinoPanel() {
 
       <h2>Tus visitas sin focalizar</h2>
       {asignaciones.length === 0 ? (
-        <p>No tienes asignaciones sin focalizar.</p>
+        <Vacio>No tienes asignaciones sin focalizar.</Vacio>
       ) : (
         asignaciones.map((a) => (
           <div key={a.id} className={estilos.tarjeta}>
@@ -72,5 +82,6 @@ export default function PadrinoPanel() {
         ))
       )}
     </div>
+    </>
   )
 }

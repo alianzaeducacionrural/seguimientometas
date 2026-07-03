@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import FilaAsignacion from '../components/FilaAsignacion'
+import { AvisoError, Cargando, Vacio } from '../../components/Estado'
+import Modal from '../../components/Modal'
 
 export default function AsignacionesMeta() {
   const { metaId } = useParams()
@@ -10,14 +12,15 @@ export default function AsignacionesMeta() {
   const usuarios = useEntidad('usuarios')
   const asignaciones = useEntidad('asignaciones_sin_focalizacion')
 
+  const [modalAbierto, setModalAbierto] = useState(false)
   const [padrinoId, setPadrinoId] = useState('')
   const [cantidad, setCantidad] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
 
-  if (metas.cargando || convenios.cargando || usuarios.cargando || asignaciones.cargando) return <p>Cargando…</p>
-  if (metas.error) return <p>Error: {metas.error}</p>
-  if (asignaciones.error) return <p>Error: {asignaciones.error}</p>
+  if (metas.cargando || convenios.cargando || usuarios.cargando || asignaciones.cargando) return <Cargando />
+  if (metas.error) return <AvisoError>Error: {metas.error}</AvisoError>
+  if (asignaciones.error) return <AvisoError>Error: {asignaciones.error}</AvisoError>
 
   const meta = metas.datos.find((m) => String(m.id) === metaId)
   if (!meta) return <p>Meta no encontrada.</p>
@@ -32,6 +35,13 @@ export default function AsignacionesMeta() {
   const totalRealizado = items.reduce((sum, a) => sum + (Number(a.cantidad_realizada) || 0), 0)
   const metaNum = Number(meta.cantidad_meta) || 0
   const cuadra = totalAsignado === metaNum
+
+  function abrirModal() {
+    setPadrinoId('')
+    setCantidad('')
+    setError(null)
+    setModalAbierto(true)
+  }
 
   async function agregar(e) {
     e.preventDefault()
@@ -48,8 +58,7 @@ export default function AsignacionesMeta() {
         cantidad_asignada: cantidad,
         cantidad_realizada: 0,
       })
-      setPadrinoId('')
-      setCantidad('')
+      setModalAbierto(false)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -58,58 +67,95 @@ export default function AsignacionesMeta() {
   }
 
   return (
-    <section>
-      {convenio && <p><Link to={`/admin/convenios/${convenio.id}`}>← Volver a {convenio.nombre}</Link></p>}
-      <h2>Asignación sin focalizar: {meta.descripcion}</h2>
-      <p>
-        Meta: {metaNum} · Asignado: <strong style={{ color: cuadra ? '#0ca30c' : '#fab219' }}>{totalAsignado}</strong>
-        {' '}· Realizado: {totalRealizado}
-        {!cuadra && <span style={{ color: '#fab219' }}> (no cuadra con la meta)</span>}
-      </p>
+    <section className="vista">
+      {convenio && <Link className="miga" to="/admin/convenios">← Volver a convenios ({convenio.nombre})</Link>}
+      <div className="barra-vista">
+        <div>
+          <h2>Asignación sin focalizar: {meta.descripcion}</h2>
+        </div>
+        <div className="barra-vista-acciones">
+          <button type="button" className="btn-primario" onClick={abrirModal} disabled={padrinosDisponibles.length === 0}>
+            + Asignar padrino
+          </button>
+        </div>
+      </div>
 
-      <h3>Asignar padrino</h3>
-      <form onSubmit={agregar} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
-        <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
-          <option value="">Padrino…</option>
-          {padrinosDisponibles.map((p) => (
-            <option key={p.id} value={p.id}>{p.nombre}</option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min="0"
-          placeholder="Cantidad asignada"
-          value={cantidad}
-          onChange={(e) => setCantidad(e.target.value)}
-          style={{ width: '10em' }}
-        />
-        <button type="submit" disabled={guardando}>Agregar</button>
-      </form>
-      {padrinos.length === 0 && <p>No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
-      {padrinos.length > 0 && padrinosDisponibles.length === 0 && <p>Todos los padrinos ya tienen una asignación en esta meta.</p>}
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      <div className="kpis">
+        <div className="kpi"><strong>{metaNum}</strong><span>Meta</span></div>
+        <div className="kpi">
+          <strong style={{ color: cuadra ? 'var(--logrado)' : 'var(--maduracion)' }}>{totalAsignado}</strong>
+          <span>Asignado</span>
+        </div>
+        <div className="kpi"><strong>{totalRealizado}</strong><span>Realizado</span></div>
+      </div>
+      {!cuadra && (
+        <p className="vista-descripcion">
+          <span className="insignia insignia-programada">Lo asignado no cuadra con la meta</span>
+        </p>
+      )}
 
-      <table border="1" cellPadding="6" style={{ borderCollapse: 'collapse', width: '100%' }}>
-        <thead>
-          <tr>
-            <th>Padrino</th>
-            <th>Cantidad asignada</th>
-            <th>Cantidad realizada</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <FilaAsignacion
-              key={item.id}
-              item={item}
-              padrinoNombre={padrinos.find((p) => String(p.id) === String(item.padrino_id))?.nombre || '—'}
-              onGuardar={asignaciones.editarItem}
-              onEliminar={asignaciones.eliminarItem}
+      {padrinos.length === 0 && <p className="vista-descripcion">No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
+      {padrinos.length > 0 && padrinosDisponibles.length === 0 && <p className="vista-descripcion">Todos los padrinos ya tienen una asignación en esta meta.</p>}
+      {error && !modalAbierto && <AvisoError>{error}</AvisoError>}
+
+      <Modal abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} titulo="Asignar padrino">
+        <form onSubmit={agregar} className="formulario-modal">
+          <label className="campo">
+            <span>Padrino</span>
+            <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
+              <option value="">Seleccionar…</option>
+              {padrinosDisponibles.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            <span>Cantidad asignada</span>
+            <input
+              type="number"
+              min="0"
+              placeholder="0"
+              value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
             />
-          ))}
-        </tbody>
-      </table>
+          </label>
+          {error && <AvisoError>{error}</AvisoError>}
+          <div className="modal-pie">
+            <button type="button" onClick={() => setModalAbierto(false)}>Cancelar</button>
+            <button type="submit" className="btn-primario" disabled={guardando}>
+              {guardando ? 'Agregando…' : 'Agregar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {items.length === 0 ? (
+        <Vacio>Todavía no hay padrinos asignados a esta meta.</Vacio>
+      ) : (
+        <div className="tabla-envoltura">
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th>Padrino</th>
+                <th>Cantidad asignada</th>
+                <th>Cantidad realizada</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <FilaAsignacion
+                  key={item.id}
+                  item={item}
+                  padrinoNombre={padrinos.find((p) => String(p.id) === String(item.padrino_id))?.nombre || '—'}
+                  onGuardar={asignaciones.editarItem}
+                  onEliminar={asignaciones.eliminarItem}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }

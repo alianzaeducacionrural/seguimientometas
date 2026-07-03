@@ -46,7 +46,7 @@ Same stack and pattern as the sibling project `../Seguimiento a egresados`:
 - **Frontend:** React + Vite, deployed to GitHub Pages via GitHub Actions (`vite.config.js` `base` and `App.jsx`'s `BrowserRouter basename` are both `/seguimientometas/`, matching the repo name).
 - **Backend:** Google Apps Script (GAS) Web App (`gas/Code.gs`) — `doGet`/`doPost` handlers, no server of its own. Container-bound to the Sheets maestro.
 - **Database:** the Sheets maestro (one tab per entity, see below), read/written entirely through GAS. Tab names and header order are the `HOJAS`/`ENCABEZADOS` constants at the top of `Code.gs` — treat that as the schema source of truth in code (mirrors `PROYECTO_SEGUIMIENTO_CONVENIOS.md`).
-- **External catalog (read-only, not duplicated):** the Mun/IE/Sedes Sheet (`1sDwOuJk0x1mO6lxJbzzWTd088SOg7fAWEuXSZEM1Eog`, tab `Mun/IE/Sedes`, columns Municipio | Instituciones Educativas | Sede, ~1300 rows, no ID column). `getCatalogoIE()` in `Code.gs` reads it via `SpreadsheetApp.openById()` and returns `{ municipios, instituciones: {municipio: [...]}, sedes: {"municipio||institucion": [...]} }` for cascading selects.
+- **External catalog (read-only, not duplicated):** the Mun/IE/Sedes Sheet (`1sDwOuJk0x1mO6lxJbzzWTd088SOg7fAWEuXSZEM1Eog`). Two tabs are read via `SpreadsheetApp.openById()` in `Code.gs`: tab `Mun/IE/Sedes` (columns Municipio | Instituciones Educativas | Sede, ~1300 rows, no ID column) through `getCatalogoIE()` → `{ municipios, instituciones: {municipio: [...]}, sedes: {"municipio||institucion": [...]} }` for cascading selects; and the padrinos tab (located by gid `1978199793`, not by name — columns A:B are Padrinos | Email) through `getCatalogoPadrinos()` → `{ padrinos: [{nombre, correo}] }`. Padrinos are **picked from this catalog** in the Usuarios view (correo auto-filled), never typed by hand; the same tab also has a wider staff list with phones/passwords in columns H:K, which the app deliberately ignores.
 - **Auth:** magic links — a `token` per user in `usuarios`, passed as `?token=...` to `/lider` or `/padrino`. GAS resolves the token to a user, checks the role matches the endpoint, and returns **only** the data that user is allowed to see — filtering happens server-side in `getLiderConvenios`/`getPadrinoResumen`, not just by hiding UI. No passwords, no login form; `/admin` itself has no auth gate (matches the spec, which only defines magic-link auth for líder/padrino).
 - **GAS ↔ frontend CORS:** GAS doesn't support preflight. POSTs from the frontend use `Content-Type: text/plain` with a JSON-stringified body; GET requests work as plain cross-origin fetches. GAS redirects `/exec` through `script.googleusercontent.com` — `fetch()` follows this transparently, but `curl` needs `-L` (and POST redirects need `--post302 --post303`, or just don't chase them and trust the write happened — the sheet is the ground truth).
 - **Gotcha — `*_ids` columns must stay text:** any comma-joined id list (`proyectos_ids`, `lideres_ids`) risks Sheets silently reinterpreting e.g. `"1,2"` as the decimal number `1.2` (comma as decimal separator) unless the cell is forced to text format first. `escribirValor()` in `Code.gs` handles this automatically for every field ending in `_ids` — if you add a new comma-list field, name it `..._ids` to get this for free, or replicate the `setNumberFormat('@')` call.
@@ -55,13 +55,18 @@ Same stack and pattern as the sibling project `../Seguimiento a egresados`:
 
 - `GET ?action=ping` → `{ ok, mensaje }` — health check.
 - `GET ?action=catalogoIE` → the Mun/IE/Sedes structure above.
-- `GET ?action=<entidad>` where `<entidad>` is `proyectos` | `aliados` | `usuarios` | `convenios` | `metas` | `focalizacion` | `asignaciones_sin_focalizacion` → `{ ok, datos: [...] }`, full rows as objects keyed by header name. **Unfiltered** — this is the admin panel's data source; there's no token check on these.
+- `GET ?action=catalogoPadrinos` → `{ ok, padrinos: [{nombre, correo}] }` from the external catalog's padrinos tab, sorted by nombre.
+- `POST {accion:'importarPadrinos'}` → bulk-creates a rol-padrino usuario (with token) for every catalog padrino not yet present; dedupes by correo (case-insensitive), so it's idempotent → `{ ok, creados, omitidos }`. Triggered by the "Importar padrinos del catálogo" button in Usuarios.
+- `GET ?action=<entidad>` where `<entidad>` is `proyectos` | `actividades` | `aliados` | `usuarios` | `convenios` | `metas` | `focalizacion` | `asignaciones_sin_focalizacion` → `{ ok, datos: [...] }`, full rows as objects keyed by header name. **Unfiltered** — this is the admin panel's data source; there's no token check on these.
 - `GET ?action=liderConvenios&token=...` → `{ ok, usuario, proyectos, aliados, convenios, metas, focalizacion, asignaciones, padrinos }`, all pre-filtered server-side to the líder's own proyectos (via `usuario.proyectos_ids` ∩ `convenio.proyectos_ids`). `padrinos` is id+nombre only (no correo/token leaked).
 - `GET ?action=padrinoResumen&token=...` → `{ ok, usuario, focalizacion, asignaciones }`, pre-filtered to that padrino's own rows, each enriched with `meta_descripcion`/`convenio_nombre` for display since the padrino doesn't get the full metas/convenios lists.
 - `POST` body (JSON, as `text/plain`): `{ accion: 'crear'|'editar'|'eliminar', entidad, id?, datos? }`, routed generically in `Code.gs` through `ENTIDADES_CRUD` (covers all 7 CRUD entities above). `crear` server-generates `id` (next integer per sheet) and, for `usuarios`, a random 6-char `token`; `editar` ignores attempts to change `id`/`token`. No POST path is token-scoped — all writes go through the open admin API.
-- Adding a new CRUD-managed sheet later: add it to `HOJAS`/`ENCABEZADOS`/`ENTIDADES_CRUD` in `Code.gs` — `listarFilas`/`crearRegistro`/`editarRegistro`/`eliminarRegistro` are already generic over any entry in that map.
+- Adding a new CRUD-managed sheet later: add it to `HOJAS`/`ENCABEZADOS`/`ENTIDADES_CRUD` in `Code.gs` — `listarFilas`/`crearRegistro`/`editarRegistro`/`eliminarRegistro` are already generic over any entry in that map, and `hojaDe()` auto-creates the physical tab (with headers) on first access.
+- Adding a new column to an existing sheet: just add it to `ENCABEZADOS` — `asegurarEsquema()` (called from listar/crear/editar) auto-expands the physical sheet and rewrites the header row on first touch. With existing data rows this is only safe for columns appended at the END (or if the sheet is empty); reordering with data requires manual migration.
 
 ### Frontend structure
+
+The visual system ("papel y cafetal": warm light theme, coffee-green brand, no dark mode) is documented in `.interface-design/system.md`; all tokens live in `src/index.css` — new UI should use those classes/tokens, not ad-hoc colors.
 
 ```
 src/
@@ -73,29 +78,37 @@ src/
 │   ├── formato.js          — soloFecha() (for <input type=date>) / formatearFecha() (dd/mm/aaaa display)
 │   └── avance.js            — ejecutadoDe(meta, focalizacion, asignaciones): shared "ejecutado" calc by tipo
 ├── components/           — shared components
-│   ├── EstadoFocalizacion.jsx  — pendiente/programada/realizada badge
-│   └── TarjetaResumen.module.css — card+table styles used by ResumenConvenios, CargaPadrinos, LiderPanel
+│   ├── EstadoFocalizacion.jsx  — pendiente/programada/realizada badge (.insignia-* classes from index.css)
+│   ├── Estado.jsx               — Cargando / AvisoError / Vacio shared view states
+│   ├── Modal.jsx                 — shared modal (overlay + Escape/click-outside close); ALL create/edit forms open in modals, not inline
+│   ├── Avatar.jsx                — initials circle colored by colorPorId, used in Usuarios table and CargaPadrinos card headers
+│   ├── Iconos.jsx                — the app's single stroke-icon set (one per nav section)
+│   ├── MarcaLogo.jsx             — inline-SVG brand mark (coffee leaf; `invertido` for green backgrounds), also mirrored in public/favicon.svg
+│   └── TarjetaResumen.module.css — card+table styles used by ResumenConvenios, CargaPadrinos, LiderPanel; entity color enters via the `--acento` CSS var (left accent stripe), set from JSX with colorPorId()
 ├── admin/                — open, full-access panel (no token)
-│   ├── AdminApp.jsx        — nav + nested routes; NavLink `to` values are absolute (`/admin/...`), not relative — see comment in the file for why
+│   ├── AdminApp.jsx        — green sidebar shell (brand + iconed nav in Gestión/Reportes sections; collapses to a top bar under 900px) + nested routes; NavLink `to` values are absolute (`/admin/...`), not relative — see comment in the file for why
 │   ├── utils/api.js        — apiGet + crear/editar/eliminar (mutations) against VITE_GAS_URL
 │   ├── hooks/
 │   │   ├── useEntidad.js     — generic list+CRUD hook for one sheet-backed entity
-│   │   └── useCatalogoIE.js  — fetches/caches the Mun/IE/Sedes catalog (module-level cache, ~1300 rows)
+│   │   ├── useCatalogoIE.js  — fetches/caches the Mun/IE/Sedes catalog (module-level cache, ~1300 rows)
+│   │   └── useCatalogoPadrinos.js — fetches/caches the padrinos (nombre+correo) catalog list
 │   ├── components/
-│   │   ├── TablaCrud.jsx          — generic table+form (text/date/number/select/multiselect) driving useEntidad
+│   │   ├── TablaCrud.jsx          — generic table + modal form (text/date/number/select/multiselect) driving useEntidad; no id column shown. "+ etiquetaNueva" opens the create modal, Editar opens it prefilled, `accionesExtra` slot for extra toolbar buttons; `opcionesSi(form)` turns a text campo into a select, `alCambiar(valor)` auto-fills sibling fields. `panelFila(fila)` makes rows accordion-expandable (click anywhere on the row except controls; rotating chevron) and `compacta` renders a nested variant for inside those panels
+│   │   ├── ActividadesDeProyecto.jsx — accordion panel under a proyecto row: nested TablaCrud of its actividades
+│   │   ├── MetasDeConvenio.jsx        — accordion panel under a convenio row: nested TablaCrud of its metas (proyecto→actividad cascade) + links to Focalización/Asignaciones
 │   │   ├── SelectorInstitucion.jsx — controlled Municipio→Institución→Sede cascading <select>s
 │   │   ├── FilaFocalizacion.jsx     — one focalización row: reasignar padrino, programar/marcar realizada
 │   │   ├── FilaAsignacion.jsx        — one asignación-sin-focalizar row: editable cantidad_asignada/realizada
 │   │   └── EnlaceMagico.jsx           — "Copiar enlace" button, builds the /lider or /padrino URL from a token
 │   └── views/
-│       ├── Proyectos.jsx, Aliados.jsx, Usuarios.jsx  — thin TablaCrud configs
-│       ├── Convenios.jsx, ConvenioDetalle.jsx (metas) — convenio CRUD + per-convenio metas CRUD
+│       ├── Proyectos.jsx, Aliados.jsx, Usuarios.jsx  — thin TablaCrud configs; Proyectos expands per-row into ActividadesDeProyecto
+│       ├── Convenios.jsx — convenio CRUD; each row expands into MetasDeConvenio (there are no /admin/proyectos/:id or /admin/convenios/:id routes — actividades/metas live in the accordions)
 │       ├── FocalizacionMeta.jsx (/admin/metas/:metaId) — focalización alta/asignación/estado for one meta
 │       ├── AsignacionesMeta.jsx (/admin/metas/:metaId/asignaciones) — per-padrino quotas for one meta
 │       ├── ResumenConvenios.jsx (/admin/resumen)  — Actividad/Meta/Ejecutado/%Avance cards per convenio
 │       ├── CargaPadrinos.jsx (/admin/carga-padrinos) — per-padrino asignadas/realizadas, by convenio
 │       ├── VisitasSede.jsx (/admin/visitas-sede)  — all focalización rows + proyecto/municipio/padrino filters
-│       └── Catalogo.jsx        — standalone SelectorInstitucion demo/test page
+│       └── Catalogo.jsx        — read-only browser of the Mun/IE/Sedes catalog (KPIs + municipio/institución filters), linked in the nav as "Catálogo IE"
 ├── lider/LiderPanel.jsx  — /lider?token=..., read-only convenios+carga scoped to the líder's proyectos
 └── padrino/
     ├── PadrinoPanel.jsx    — /padrino?token=..., read-only own focalización+asignaciones
@@ -109,9 +122,10 @@ src/
 Entities and relations — full column-level detail is in `PROYECTO_SEGUIMIENTO_CONVENIOS.md`:
 
 - `proyectos` — the 7 fixed projects.
+- `actividades` — per-proyecto activity catalog (`id`, `proyecto_id`, `nombre`), managed in the accordion under each proyecto row. In the meta modal, picking a proyecto loads its actividades as the options for `descripcion` (cascading select; free text if the proyecto has no actividades yet). The chosen nombre is stored as text in `metas.descripcion` — same pattern as focalización storing catalog values as text.
 - `aliados` — funders.
 - `convenios` — one aliado per convenio; `proyectos_ids` (comma list) instead of the `convenio_proyectos` join sheet (see above).
-- `metas` — belong to one convenio; `tipo` is `visita_focalizada`, `visita_sin_focalizar`, or `otro_indicador`. Only the first two get per-padrino tracking; `otro_indicador` metas just carry a `cantidad_realizada` aggregate on the meta row itself.
+- `metas` — belong to one convenio and to one `proyecto_id` (picked from the convenio's proyectos in the UI; falls back to all proyectos if the convenio has none marked). `tipo` is `visita_focalizada`, `visita_sin_focalizar`, or `otro_indicador`. Only the first two get per-padrino tracking; `otro_indicador` metas just carry a `cantidad_realizada` aggregate on the meta row itself. The VisitasSede proyecto filter prefers `meta.proyecto_id` and falls back to `convenio.proyectos_ids` for old rows without it.
 - `focalizacion` — one row per pre-assigned school visit under a `visita_focalizada` meta; `padrino_id` is reassignable; `estado` moves `pendiente` → `programada` (sets `fecha_programada`) → `realizada` (sets `fecha_realizada`).
 - `asignaciones_sin_focalizacion` — per-padrino visit quotas (`cantidad_asignada`/`cantidad_realizada`) under a `visita_sin_focalizar` meta, no fixed institution.
 - `usuarios` — `rol` is `admin` | `lider` | `padrino`; `proyectos_ids` applies to líderes; `token` is the magic-link key.

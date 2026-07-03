@@ -4,6 +4,8 @@ import { apiGet } from '../utils/api'
 import { colorAvance, colorPorId } from '../utils/colores'
 import { ejecutadoDe } from '../utils/avance'
 import estilos from '../components/TarjetaResumen.module.css'
+import { AvisoError, Cargando, Vacio } from '../components/Estado'
+import MarcaLogo from '../components/MarcaLogo'
 
 // Solo lectura: convenios/metas/focalización/carga de los proyectos que
 // lidera, filtrados en el servidor por el token (ver getLiderConvenios en
@@ -25,8 +27,8 @@ export default function LiderPanel() {
       .finally(() => setCargando(false))
   }, [token])
 
-  if (cargando) return <Envoltorio><p>Cargando…</p></Envoltorio>
-  if (error) return <Envoltorio><p style={{ color: 'crimson' }}>{error}</p></Envoltorio>
+  if (cargando) return <Envoltorio><Cargando /></Envoltorio>
+  if (error) return <Envoltorio><AvisoError>{error}</AvisoError></Envoltorio>
 
   const { usuario, convenios, metas, focalizacion, asignaciones, aliados, proyectos, padrinos } = datos
 
@@ -45,20 +47,20 @@ export default function LiderPanel() {
   return (
     <Envoltorio nombre={usuario.nombre} proyectos={proyectos}>
       <h2>Avance de tus convenios</h2>
-      {convenios.length === 0 && <p>Todavía no hay convenios en tus proyectos.</p>}
+      {convenios.length === 0 && <Vacio>Todavía no hay convenios en tus proyectos.</Vacio>}
       {convenios.map((convenio) => {
         const aliado = aliados.find((a) => String(a.id) === String(convenio.aliado_id))
         const metasDelConvenio = metas.filter((m) => String(m.convenio_id) === String(convenio.id))
         const color = colorPorId(convenio.id)
 
         return (
-          <div key={convenio.id} className={estilos.card}>
-            <div className={estilos.header} style={{ background: color }}>
+          <div key={convenio.id} className={estilos.card} style={{ '--acento': color }}>
+            <div className={estilos.header}>
               <h3>{convenio.nombre}</h3>
               <p>{aliado?.nombre || '—'} · {convenio.anio_vigencia} · {convenio.estado}</p>
             </div>
             {metasDelConvenio.length === 0 ? (
-              <p style={{ padding: '0.75rem 1rem', margin: 0, color: '#898781' }}>Sin metas todavía.</p>
+              <p className={estilos.sinMetas}>Sin metas todavía.</p>
             ) : (
               <div className={estilos.tablaWrap}>
               <table className={estilos.tabla}>
@@ -101,9 +103,9 @@ export default function LiderPanel() {
 
       <h2>Carga de padrinos</h2>
       {cargaPorPadrino.length === 0 ? (
-        <p>Todavía no hay padrinos con visitas asignadas en tus convenios.</p>
+        <Vacio>Todavía no hay padrinos con visitas asignadas en tus convenios.</Vacio>
       ) : (
-        <div className={estilos.tablaWrap}>
+        <div className="tabla-envoltura">
         <table className={estilos.tabla}>
           <thead>
             <tr>
@@ -130,14 +132,20 @@ export default function LiderPanel() {
 
 function Envoltorio({ nombre, proyectos, children }) {
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '900px', margin: '0 auto' }}>
-      <h1>Vista de líder</h1>
-      {nombre && (
-        <p>
-          Hola, <strong>{nombre}</strong> — solo lectura de {proyectos?.map((p) => p.nombre).join(', ') || 'tus proyectos'}.
-        </p>
-      )}
-      {children}
-    </div>
+    <>
+      <div className="banda-persona">
+        <div className="banda-persona-interior">
+          <MarcaLogo invertido />
+          <h1>{nombre ? `Hola, ${nombre}` : 'Vista de líder'}</h1>
+          <span className="panel-persona-rol">Líder</span>
+        </div>
+        {nombre && (
+          <p className="banda-persona-sub">
+            Solo lectura de {proyectos?.map((p) => p.nombre).join(', ') || 'tus proyectos'}.
+          </p>
+        )}
+      </div>
+      <div className="panel-persona">{children}</div>
+    </>
   )
 }

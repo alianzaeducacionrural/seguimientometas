@@ -1,5 +1,6 @@
 import useEntidad from '../hooks/useEntidad'
 import TablaCrud from '../components/TablaCrud'
+import { AvisoError, Cargando } from '../../components/Estado'
 
 const CAMPOS = [
   { clave: 'nombre', label: 'Nombre', tipo: 'text', requerido: true },
@@ -8,12 +9,13 @@ const CAMPOS = [
 export default function Aliados() {
   const aliados = useEntidad('aliados')
 
-  if (aliados.cargando) return <p>Cargando…</p>
-  if (aliados.error) return <p>Error: {aliados.error}</p>
+  if (aliados.cargando) return <Cargando />
+  if (aliados.error) return <AvisoError>Error: {aliados.error}</AvisoError>
 
   return (
     <TablaCrud
       titulo="Aliados"
+      etiquetaNueva="Nuevo aliado"
       campos={CAMPOS}
       filas={aliados.datos}
       onCrear={aliados.crearItem}

@@ -29,9 +29,15 @@ export default function FilaAsignacion({ item, padrinoNombre, onGuardar, onElimi
       <td>
         <input type="number" min="0" value={realizada} onChange={(e) => setRealizada(e.target.value)} style={{ width: '5em' }} />
       </td>
-      <td>
-        <button type="button" disabled={!cambio || guardando} onClick={guardar}>Guardar</button>{' '}
-        <button type="button" onClick={() => onEliminar(item.id)}>Eliminar</button>
+      <td className="celda-acciones">
+        <button type="button" className="btn-primario" disabled={!cambio || guardando} onClick={guardar}>Guardar</button>{' '}
+        <button
+          type="button"
+          className="btn-peligro"
+          onClick={() => confirm('¿Eliminar esta asignación?') && onEliminar(item.id)}
+        >
+          Eliminar
+        </button>
       </td>
     </tr>
   )

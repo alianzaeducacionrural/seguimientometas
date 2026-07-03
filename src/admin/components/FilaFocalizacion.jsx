@@ -53,8 +53,14 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
         )}
         {item.estado === 'realizada' && <span>Realizada: {formatearFecha(item.fecha_realizada)}</span>}
       </td>
-      <td>
-        <button type="button" onClick={() => onEliminar(item.id)}>Eliminar</button>
+      <td className="celda-acciones">
+        <button
+          type="button"
+          className="btn-peligro"
+          onClick={() => confirm('¿Eliminar esta focalización?') && onEliminar(item.id)}
+        >
+          Eliminar
+        </button>
       </td>
     </tr>
   )

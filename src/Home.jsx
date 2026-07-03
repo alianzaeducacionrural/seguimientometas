@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import MarcaLogo from './components/MarcaLogo'
 
 const GAS_URL = import.meta.env.VITE_GAS_URL
 
@@ -27,16 +28,26 @@ export default function Home() {
   }, [])
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>Seguimiento a Convenios y Focalización</h1>
-      <p>Área de Educación — Comité de Cafeteros de Caldas</p>
-      <p>
-        Estado de conexión con Google Apps Script:{' '}
-        {estado === 'cargando' && 'consultando…'}
-        {estado === 'ok' && `✓ ${mensaje}`}
-        {estado === 'error' && `✗ ${mensaje}`}
-      </p>
-      <p><Link to="/admin">Ir al panel de administración</Link></p>
+    <div className="portada">
+      <div className="portada-tarjeta">
+        <MarcaLogo tamano={52} />
+        <h1>Seguimiento a Convenios y Focalización</h1>
+        <p>Área de Educación · Comité de Cafeteros de Caldas</p>
+
+        {estado === 'cargando' && (
+          <span className="insignia insignia-neutra">Verificando conexión…</span>
+        )}
+        {estado === 'ok' && (
+          <span className="insignia insignia-realizada" title={mensaje}>Conectado al sistema</span>
+        )}
+        {estado === 'error' && (
+          <span className="insignia insignia-error">Sin conexión: {mensaje}</span>
+        )}
+
+        <div className="portada-acciones">
+          <Link to="/admin">Ir al panel de administración</Link>
+        </div>
+      </div>
     </div>
   )
 }

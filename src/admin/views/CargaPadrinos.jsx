@@ -1,6 +1,8 @@
 import useEntidad from '../hooks/useEntidad'
 import estilos from '../../components/TarjetaResumen.module.css'
 import { colorPorId } from '../../utils/colores'
+import { AvisoError, Cargando, Vacio } from '../../components/Estado'
+import Avatar from '../../components/Avatar'
 
 // Carga de trabajo por padrino: cuánto tiene asignado y cuánto ha realizado,
 // desglosado por convenio (una focalización cuenta 1 visita; una asignación
@@ -43,20 +45,24 @@ export default function CargaPadrinos() {
 
   const cargando = usuarios.cargando || convenios.cargando || proyectos.cargando
     || metas.cargando || focalizacion.cargando || asignaciones.cargando
-  if (cargando) return <p>Cargando…</p>
-  if (usuarios.error) return <p>Error: {usuarios.error}</p>
+  if (cargando) return <Cargando />
+  if (usuarios.error) return <AvisoError>Error: {usuarios.error}</AvisoError>
 
   const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino')
   if (padrinos.length === 0) {
-    return <p>Todavía no hay usuarios con rol "padrino". Créalos en Usuarios.</p>
+    return (
+      <section className="vista">
+        <h2>Carga de padrinos</h2>
+        <Vacio>Todavía no hay usuarios con rol "padrino". Créalos en Usuarios.</Vacio>
+      </section>
+    )
   }
 
   const metaPorId = Object.fromEntries(metas.datos.map((m) => [String(m.id), m]))
 
   return (
-    <section>
+    <section className="vista">
       <h2>Carga de padrinos</h2>
-      <p>Visitas asignadas y realizadas por padrino, desglosadas por convenio — sirve para nivelar el trabajo del equipo.</p>
 
       {padrinos.map((padrino) => {
         const porConvenio = cargaPorConvenio(padrino.id, focalizacion.datos, asignaciones.datos, metaPorId)
@@ -66,16 +72,19 @@ export default function CargaPadrinos() {
         const color = colorPorId(padrino.id)
 
         return (
-          <div key={padrino.id} className={estilos.card}>
-            <div className={estilos.header} style={{ background: color }}>
-              <h3>{padrino.nombre}</h3>
-              <p>
-                {padrino.correo} · Asignadas: {totalAsignadas} · Realizadas: {totalRealizadas}
-              </p>
+          <div key={padrino.id} className={estilos.card} style={{ '--acento': color }}>
+            <div className={`${estilos.header} ${estilos.headerConAvatar}`}>
+              <Avatar id={padrino.id} nombre={padrino.nombre} tamano={38} />
+              <div>
+                <h3>{padrino.nombre}</h3>
+                <p>
+                  {padrino.correo} · Asignadas: {totalAsignadas} · Realizadas: {totalRealizadas}
+                </p>
+              </div>
             </div>
 
             {convenioIds.length === 0 ? (
-              <p style={{ padding: '0.75rem 1rem', margin: 0, color: '#898781' }}>Sin visitas asignadas todavía.</p>
+              <p className={estilos.sinMetas}>Sin visitas asignadas todavía.</p>
             ) : (
               <div className={estilos.tablaWrap}>
               <table className={estilos.tabla}>

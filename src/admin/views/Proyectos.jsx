@@ -1,5 +1,7 @@
 import useEntidad from '../hooks/useEntidad'
 import TablaCrud from '../components/TablaCrud'
+import ActividadesDeProyecto from '../components/ActividadesDeProyecto'
+import { AvisoError, Cargando } from '../../components/Estado'
 
 const CAMPOS = [
   { clave: 'nombre', label: 'Nombre', tipo: 'text', requerido: true },
@@ -20,18 +22,20 @@ export default function Proyectos() {
       .join(', ')
   }
 
-  if (proyectos.cargando) return <p>Cargando…</p>
-  if (proyectos.error) return <p>Error: {proyectos.error}</p>
+  if (proyectos.cargando) return <Cargando />
+  if (proyectos.error) return <AvisoError>Error: {proyectos.error}</AvisoError>
 
   return (
     <TablaCrud
       titulo="Proyectos"
+      etiquetaNueva="Nuevo proyecto"
       campos={CAMPOS}
       columnasExtra={[{ label: 'Líderes', render: (fila) => lideresDe(fila.id) || '—' }]}
       filas={proyectos.datos}
       onCrear={proyectos.crearItem}
       onEditar={proyectos.editarItem}
       onEliminar={proyectos.eliminarItem}
+      panelFila={(fila) => <ActividadesDeProyecto proyectoId={fila.id} />}
     />
   )
 }

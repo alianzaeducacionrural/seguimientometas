@@ -59,11 +59,21 @@ Algunos convenios traen **focalización**: un listado específico de institucion
 | convenio_id | texto | |
 | proyecto_id | texto | |
 
+### `actividades`
+| Columna | Tipo | Descripción |
+|---|---|---|
+| id | texto | Identificador único |
+| proyecto_id | texto | Proyecto dueño de la actividad |
+| nombre | texto | Ej: "Visitas de asesoría y acompañamiento", "Microcentros rurales" |
+
+> Catálogo de actividades de cada proyecto. Al crear una meta se elige primero el proyecto y la actividad se escoge de este catálogo (en cascada); el nombre elegido queda guardado en `metas.descripcion`.
+
 ### `metas`
 | Columna | Tipo | Descripción |
 |---|---|---|
 | id | texto | Identificador único |
 | convenio_id | texto | Convenio al que pertenece |
+| proyecto_id | texto | Proyecto del área al que corresponde la actividad (uno de los proyectos asociados al convenio) |
 | descripcion | texto | Ej: "Visitas de asesoría y acompañamiento", "Microcentros rurales", "Docentes capacitados" |
 | cantidad_meta | número | Meta numérica a cumplir |
 | tipo | texto | `visita_focalizada` / `visita_sin_focalizar` / `otro_indicador` |

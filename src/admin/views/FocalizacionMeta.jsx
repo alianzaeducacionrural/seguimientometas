@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import SelectorInstitucion from '../components/SelectorInstitucion'
 import FilaFocalizacion from '../components/FilaFocalizacion'
+import { AvisoError, Cargando, Vacio } from '../../components/Estado'
+import Modal from '../../components/Modal'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
@@ -13,14 +15,15 @@ export default function FocalizacionMeta() {
   const usuarios = useEntidad('usuarios')
   const focalizacion = useEntidad('focalizacion')
 
+  const [modalAbierto, setModalAbierto] = useState(false)
   const [seleccion, setSeleccion] = useState(SELECCION_VACIA)
   const [padrinoId, setPadrinoId] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
 
-  if (metas.cargando || convenios.cargando || usuarios.cargando || focalizacion.cargando) return <p>Cargando…</p>
-  if (metas.error) return <p>Error: {metas.error}</p>
-  if (focalizacion.error) return <p>Error: {focalizacion.error}</p>
+  if (metas.cargando || convenios.cargando || usuarios.cargando || focalizacion.cargando) return <Cargando />
+  if (metas.error) return <AvisoError>Error: {metas.error}</AvisoError>
+  if (focalizacion.error) return <AvisoError>Error: {focalizacion.error}</AvisoError>
 
   const meta = metas.datos.find((m) => String(m.id) === metaId)
   if (!meta) return <p>Meta no encontrada.</p>
@@ -29,6 +32,13 @@ export default function FocalizacionMeta() {
   const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino')
   const items = focalizacion.datos.filter((f) => String(f.meta_id) === metaId)
   const realizadas = items.filter((f) => f.estado === 'realizada').length
+
+  function abrirModal() {
+    setSeleccion(SELECCION_VACIA)
+    setPadrinoId('')
+    setError(null)
+    setModalAbierto(true)
+  }
 
   async function agregar(e) {
     e.preventDefault()
@@ -47,8 +57,7 @@ export default function FocalizacionMeta() {
         padrino_id: padrinoId,
         estado: 'pendiente',
       })
-      setSeleccion(SELECCION_VACIA)
-      setPadrinoId('')
+      setModalAbierto(false)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -69,53 +78,80 @@ export default function FocalizacionMeta() {
   }
 
   return (
-    <section>
-      {convenio && <p><Link to={`/admin/convenios/${convenio.id}`}>← Volver a {convenio.nombre}</Link></p>}
-      <h2>Focalización: {meta.descripcion}</h2>
-      <p>
-        Meta: {meta.cantidad_meta} · Focalizadas: {items.length} · Realizadas: {realizadas}
-      </p>
+    <section className="vista">
+      {convenio && <Link className="miga" to="/admin/convenios">← Volver a convenios ({convenio.nombre})</Link>}
+      <div className="barra-vista">
+        <div>
+          <h2>Focalización: {meta.descripcion}</h2>
+        </div>
+        <div className="barra-vista-acciones">
+          <button type="button" className="btn-primario" onClick={abrirModal}>+ Agregar sede</button>
+        </div>
+      </div>
 
-      <h3>Agregar sede a focalizar</h3>
-      <form onSubmit={agregar} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
-        <SelectorInstitucion {...seleccion} onChange={setSeleccion} />
-        <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
-          <option value="">Padrino…</option>
-          {padrinos.map((p) => (
-            <option key={p.id} value={p.id}>{p.nombre}</option>
-          ))}
-        </select>
-        <button type="submit" disabled={guardando}>Agregar</button>
-      </form>
-      {padrinos.length === 0 && <p>No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      <div className="kpis">
+        <div className="kpi"><strong>{meta.cantidad_meta}</strong><span>Meta</span></div>
+        <div className="kpi"><strong>{items.length}</strong><span>Focalizadas</span></div>
+        <div className="kpi"><strong>{realizadas}</strong><span>Realizadas</span></div>
+      </div>
 
-      <table border="1" cellPadding="6" style={{ borderCollapse: 'collapse', width: '100%' }}>
-        <thead>
-          <tr>
-            <th>Municipio</th>
-            <th>Institución</th>
-            <th>Sede</th>
-            <th>Padrino</th>
-            <th>Estado</th>
-            <th>Acción</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <FilaFocalizacion
-              key={item.id}
-              item={item}
-              padrinos={padrinos}
-              onReasignar={reasignar}
-              onProgramar={programar}
-              onMarcarRealizada={marcarRealizada}
-              onEliminar={focalizacion.eliminarItem}
-            />
-          ))}
-        </tbody>
-      </table>
+      {padrinos.length === 0 && <p className="vista-descripcion">No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
+      {error && !modalAbierto && <AvisoError>{error}</AvisoError>}
+
+      <Modal abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} titulo="Agregar sede a focalizar">
+        <form onSubmit={agregar} className="formulario-modal">
+          <SelectorInstitucion {...seleccion} onChange={setSeleccion} />
+          <label className="campo">
+            <span>Padrino</span>
+            <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
+              <option value="">Sin asignar</option>
+              {padrinos.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          </label>
+          {error && <AvisoError>{error}</AvisoError>}
+          <div className="modal-pie">
+            <button type="button" onClick={() => setModalAbierto(false)}>Cancelar</button>
+            <button type="submit" className="btn-primario" disabled={guardando}>
+              {guardando ? 'Agregando…' : 'Agregar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {items.length === 0 ? (
+        <Vacio>Todavía no hay sedes focalizadas en esta meta — agrega la primera con el formulario de arriba.</Vacio>
+      ) : (
+        <div className="tabla-envoltura">
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th>Municipio</th>
+                <th>Institución</th>
+                <th>Sede</th>
+                <th>Padrino</th>
+                <th>Estado</th>
+                <th>Acción</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <FilaFocalizacion
+                  key={item.id}
+                  item={item}
+                  padrinos={padrinos}
+                  onReasignar={reasignar}
+                  onProgramar={programar}
+                  onMarcarRealizada={marcarRealizada}
+                  onEliminar={focalizacion.eliminarItem}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }

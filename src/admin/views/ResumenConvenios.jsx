@@ -2,6 +2,7 @@ import useEntidad from '../hooks/useEntidad'
 import estilos from '../../components/TarjetaResumen.module.css'
 import { colorAvance, colorPorId } from '../../utils/colores'
 import { ejecutadoDe } from '../../utils/avance'
+import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 
 export default function ResumenConvenios() {
   const convenios = useEntidad('convenios')
@@ -11,16 +12,21 @@ export default function ResumenConvenios() {
   const focalizacion = useEntidad('focalizacion')
   const asignaciones = useEntidad('asignaciones_sin_focalizacion')
 
-  if (convenios.cargando || aliados.cargando || proyectos.cargando || metas.cargando || focalizacion.cargando || asignaciones.cargando) return <p>Cargando…</p>
-  if (convenios.error) return <p>Error: {convenios.error}</p>
-  if (metas.error) return <p>Error: {metas.error}</p>
+  if (convenios.cargando || aliados.cargando || proyectos.cargando || metas.cargando || focalizacion.cargando || asignaciones.cargando) return <Cargando />
+  if (convenios.error) return <AvisoError>Error: {convenios.error}</AvisoError>
+  if (metas.error) return <AvisoError>Error: {metas.error}</AvisoError>
 
   if (convenios.datos.length === 0) {
-    return <p>Todavía no hay convenios creados. Ve a "Convenios" para crear el primero.</p>
+    return (
+      <section className="vista">
+        <h2>Avance por convenio</h2>
+        <Vacio>Todavía no hay convenios creados. Ve a "Convenios" para crear el primero.</Vacio>
+      </section>
+    )
   }
 
   return (
-    <section>
+    <section className="vista">
       <h2>Avance por convenio</h2>
       {convenios.datos.map((convenio) => {
         const aliado = aliados.datos.find((a) => String(a.id) === String(convenio.aliado_id))
@@ -33,8 +39,8 @@ export default function ResumenConvenios() {
         const color = colorPorId(convenio.id)
 
         return (
-          <div key={convenio.id} className={estilos.card}>
-            <div className={estilos.header} style={{ background: color }}>
+          <div key={convenio.id} className={estilos.card} style={{ '--acento': color }}>
+            <div className={estilos.header}>
               <h3>{convenio.nombre}</h3>
               <p>
                 {aliado?.nombre || '—'} · {convenio.anio_vigencia} · {convenio.estado}
@@ -43,13 +49,14 @@ export default function ResumenConvenios() {
             </div>
 
             {metasDelConvenio.length === 0 ? (
-              <p style={{ padding: '0.75rem 1rem', margin: 0, color: '#898781' }}>Sin metas todavía.</p>
+              <p className={estilos.sinMetas}>Sin metas todavía.</p>
             ) : (
               <div className={estilos.tablaWrap}>
               <table className={estilos.tabla}>
                 <thead>
                   <tr>
                     <th>Actividad</th>
+                    <th>Proyecto</th>
                     <th className={estilos.numero}>Meta</th>
                     <th className={estilos.numero}>Ejecutado</th>
                     <th>% Avance</th>
@@ -61,9 +68,11 @@ export default function ResumenConvenios() {
                     const ejecutado = ejecutadoDe(meta, focalizacion.datos, asignaciones.datos)
                     const pct = metaNum > 0 ? Math.round((ejecutado / metaNum) * 100) : 0
                     const pctBarra = Math.min(pct, 100)
+                    const proyectoMeta = proyectos.datos.find((p) => String(p.id) === String(meta.proyecto_id))
                     return (
                       <tr key={meta.id}>
                         <td>{meta.descripcion}</td>
+                        <td>{proyectoMeta?.nombre || '—'}</td>
                         <td className={estilos.numero}>{metaNum}</td>
                         <td className={estilos.numero}>{ejecutado}</td>
                         <td>

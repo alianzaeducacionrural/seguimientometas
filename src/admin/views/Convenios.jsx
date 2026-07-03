@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import TablaCrud from '../components/TablaCrud'
+import MetasDeConvenio from '../components/MetasDeConvenio'
+import { AvisoError, Cargando } from '../../components/Estado'
 
 const ESTADOS = [
   { value: 'Activo', label: 'Activo' },
@@ -12,10 +14,10 @@ export default function Convenios() {
   const aliados = useEntidad('aliados')
   const proyectos = useEntidad('proyectos')
 
-  if (convenios.cargando || aliados.cargando || proyectos.cargando) return <p>Cargando…</p>
-  if (convenios.error) return <p>Error: {convenios.error}</p>
-  if (aliados.error) return <p>Error: {aliados.error}</p>
-  if (proyectos.error) return <p>Error: {proyectos.error}</p>
+  if (convenios.cargando || aliados.cargando || proyectos.cargando) return <Cargando />
+  if (convenios.error) return <AvisoError>Error: {convenios.error}</AvisoError>
+  if (aliados.error) return <AvisoError>Error: {aliados.error}</AvisoError>
+  if (proyectos.error) return <AvisoError>Error: {proyectos.error}</AvisoError>
 
   const campos = [
     { clave: 'nombre', label: 'Nombre', tipo: 'text', requerido: true },
@@ -48,14 +50,15 @@ export default function Convenios() {
     <>
       <TablaCrud
         titulo="Convenios"
+        etiquetaNueva="Nuevo convenio"
         campos={campos}
-        columnasExtra={[{ label: '', render: (fila) => <Link to={`/admin/convenios/${fila.id}`}>Metas →</Link> }]}
         filas={convenios.datos}
         onCrear={convenios.crearItem}
         onEditar={convenios.editarItem}
         onEliminar={convenios.eliminarItem}
+        panelFila={(fila) => <MetasDeConvenio convenio={fila} />}
       />
-      <p><Link to="/admin/resumen">Ver tabla de avance por convenio →</Link></p>
+      <p style={{ marginTop: '1rem' }}><Link to="/admin/resumen">Ver tabla de avance por convenio →</Link></p>
     </>
   )
 }

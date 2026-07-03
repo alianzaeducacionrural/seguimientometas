@@ -12,8 +12,9 @@ export function colorPorId(id) {
 }
 
 // Paleta de estado (fija, nunca se reusa para identidad) para % de avance.
+// Alineada con los tokens --logrado / --maduracion / --cereza de index.css.
 export function colorAvance(pct) {
-  if (pct >= 75) return '#0ca30c'
-  if (pct >= 40) return '#fab219'
-  return '#d03b3b'
+  if (pct >= 75) return '#178a3f'
+  if (pct >= 40) return '#d9930d'
+  return '#c0392f'
 }
