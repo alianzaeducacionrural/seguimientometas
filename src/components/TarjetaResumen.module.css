@@ -1,0 +1,78 @@
+.card {
+  border: 1px solid #e1e0d9;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.header {
+  padding: 0.75rem 1rem;
+  color: #fff;
+}
+
+.header h3 {
+  margin: 0 0 0.15rem;
+  font-size: 1.05rem;
+}
+
+.header p {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.tablaWrap {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  text-align: left;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid #e1e0d9;
+  font-size: 0.9rem;
+}
+
+.tabla th {
+  background: #f9f9f7;
+  color: #52514e;
+  font-weight: 600;
+}
+
+.numero {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.avanceCelda {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 160px;
+}
+
+.track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: #e1e0d9;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.pct {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: #52514e;
+  width: 3.2em;
+  text-align: right;
+}

@@ -1,0 +1,46 @@
+.envoltorio {
+  padding: 1rem;
+  max-width: 480px;
+  margin: 0 auto;
+  font-size: 16px;
+}
+
+.tarjeta {
+  border: 1px solid #e1e0d9;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.tarjeta h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.tarjeta p {
+  margin: 0.15rem 0;
+  color: #52514e;
+  font-size: 0.92rem;
+}
+
+.filaNumeros {
+  display: flex;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.numero {
+  display: flex;
+  flex-direction: column;
+}
+
+.numero span:first-child {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.numero span:last-child {
+  font-size: 0.75rem;
+  color: #898781;
+}

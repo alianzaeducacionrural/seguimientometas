@@ -1,5 +1,6 @@
 import useEntidad from '../hooks/useEntidad'
 import TablaCrud from '../components/TablaCrud'
+import EnlaceMagico from '../components/EnlaceMagico'
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -37,7 +38,10 @@ export default function Usuarios() {
     <TablaCrud
       titulo="Usuarios"
       campos={campos}
-      columnasExtra={[{ label: 'Token', render: (fila) => fila.token }]}
+      columnasExtra={[
+        { label: 'Token', render: (fila) => fila.token },
+        { label: 'Enlace', render: (fila) => <EnlaceMagico rol={fila.rol} token={fila.token} /> },
+      ]}
       filas={usuarios.datos}
       onCrear={usuarios.crearItem}
       onEditar={usuarios.editarItem}

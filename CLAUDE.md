@@ -4,32 +4,113 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-**Pre-implementation.** This directory currently contains only the spec (`PROYECTO_SEGUIMIENTO_CONVENIOS.md`) and phased plan (`PLAN.md`) — no `package.json`, no source code, no git repo yet. Fase 0 in `PLAN.md` (repo init, Vite scaffold, GitHub Actions, Sheets maestro, GAS project) has not been executed. Before writing app code, check whether Fase 0 has since been completed (look for `package.json`, `src/`, `gas/`); if not, that's the first step.
+All 8 phases in `PLAN.md` (Fase 0–7) are implemented and have been verified end-to-end against the real backend (real Sheets maestro, real GAS deployment) with Playwright — including role-scoped access (líder/padrino magic links) and a 3-convenio, mixed-meta-type smoke test. Test data was created and cleaned up after each verification pass; the live Sheet is currently empty of app data, ready for the team's real convenios.
 
-Read `PROYECTO_SEGUIMIENTO_CONVENIOS.md` in full before implementing anything — it is the source of truth for the data model, roles, and panels. `PLAN.md` sequences the work into 8 phases (Fase 0–7), each ending in a manual review checkpoint described at the end of that phase's section — don't skip ahead of the current phase without checking with the user.
+**The working tree has uncommitted changes.** Per explicit instruction, commits are made only when the user asks — don't `git commit`/`push` proactively, even after finishing a phase. Check `git status` before assuming what's live: GitHub Pages only rebuilds on push to `main`, so the deployed site may lag behind the working tree.
+
+Read `PROYECTO_SEGUIMIENTO_CONVENIOS.md` for the full data model/roles/panels spec and `PLAN.md` for the phase breakdown — both are still accurate to what's built.
+
+## Commands
+
+```bash
+npm install        # Install dependencies
+npm run dev        # Start dev server (localhost:5173)
+npm run build      # Build for production to dist/
+npm run lint       # ESLint
+npm run preview    # Preview production build locally
+```
+
+GAS backend lives in `gas/` and is managed with `clasp` (already authenticated on this machine):
+
+```bash
+cd gas
+clasp push -f                              # Push Code.gs/appsscript.json to the bound Apps Script project
+clasp deploy -i <deploymentId> -d "desc"   # Redeploy so the LIVE /exec URL picks up the pushed code
+clasp deployments                          # List deployment IDs (the one used by VITE_GAS_URL is the non-@HEAD one with a description)
+```
+
+`clasp push` alone does **not** update the live Web App — deployments are versioned snapshots. After pushing, you must redeploy the specific deployment ID that the frontend's `VITE_GAS_URL` / the GitHub Actions secret points to, via `clasp deploy -i <id>`, or the `/exec` endpoint keeps serving the old code. `gas/.clasp.json` (holds the scriptId) is gitignored, matching the sibling project's convention — only `Code.gs` and `appsscript.json` are committed.
+
+GitHub Pages redeploys only on push to `main` (no `workflow_dispatch`) — to re-trigger after just changing a repo secret, push an empty commit.
+
+**Testing against the real backend:** there's no separate dev/staging Sheet — `npm run dev` and the deployed site hit the same production Sheets maestro via `VITE_GAS_URL`. When testing CRUD flows manually or with a script, clean up any records you create afterward (`?action=<entidad>` to list, `{accion:'eliminar',...}` POSTs to remove) so the sheet stays empty/real-data-only between sessions.
 
 ## Project overview
 
-Sistema de Seguimiento a Convenios, Focalización y Carga de Padrinos, for the Área de Educación of Comité de Cafeteros de Caldas. It tracks agreements (`convenios`) with external funders (`aliados`) across the area's 7 projects (Escuela Nueva, Posprimaria, Educación Media, Escuela y Café, Seguridad Alimentaria, Escuela Virtual, La Universidad en el Campo). Each convenio has goals (`metas`); some goals require visiting specific pre-assigned schools (`focalización`), others just distribute a visit quota among volunteers (`padrinos`) without a fixed institution. The platform gives coordinators a consolidated view of progress per convenio, lets them assign/reassign focalización to padrinos and schedule visits, and gives padrinos and project leads read-only views scoped to their own data.
+Sistema de Seguimiento a Convenios, Focalización y Carga de Padrinos, for the Área de Educación of Comité de Cafeteros de Caldas. It tracks agreements (`convenios`) with external funders (`aliados`) across the area's 7 projects (Escuela Nueva, Posprimaria, Educación Media, Escuela y Café, Seguridad Alimentaria, Escuela Virtual, La Universidad en el Campo). Each convenio has goals (`metas`); some goals require visiting specific pre-assigned schools (`focalización`), others just distribute a visit quota among volunteers (`padrinos`) without a fixed institution. The platform gives coordinators a consolidated view of progress per convenio, lets them assign/reassign focalización to padrinos and schedule visits, and gives padrinos and project leads read-only views scoped to their own data via magic links.
 
-## Intended architecture
+## Architecture
 
-Same stack and pattern as the sibling project `../Seguimiento a egresados` (already built — useful as a live reference for conventions, GAS CORS workarounds, and deploy setup):
+Same stack and pattern as the sibling project `../Seguimiento a egresados`:
 
-- **Frontend:** React + Vite, deployed to GitHub Pages via GitHub Actions.
-- **Backend:** Google Apps Script (GAS) Web App — `doGet`/`doPost` handlers, no server of its own.
-- **Database:** a new Google Sheets maestro (one tab per entity below), read/written entirely through GAS.
-- **External catalog (read-only, not duplicated):** the existing Mun/IE/Sedes Sheet (`1sDwOuJk0x1mO6lxJbzzWTd088SOg7fAWEuXSZEM1Eog`), columns Municipio | Institución Educativa | Sede, no ID column — the natural key is the `municipio + institución + sede` combination. GAS reads it directly via `SpreadsheetApp.openById()` to populate focalización selectors.
-- **Auth:** magic links — a `token` per user in the `usuarios` sheet, passed as a query param (`?token=...`); GAS resolves the token to a user/role and filters what it returns. No passwords, no login form.
-- **GAS ↔ frontend CORS constraint** (per the sibling project): GAS doesn't support preflight, so POSTs must use `Content-Type: text/plain` with a JSON-stringified body, not `application/json`.
+- **Frontend:** React + Vite, deployed to GitHub Pages via GitHub Actions (`vite.config.js` `base` and `App.jsx`'s `BrowserRouter basename` are both `/seguimientometas/`, matching the repo name).
+- **Backend:** Google Apps Script (GAS) Web App (`gas/Code.gs`) — `doGet`/`doPost` handlers, no server of its own. Container-bound to the Sheets maestro.
+- **Database:** the Sheets maestro (one tab per entity, see below), read/written entirely through GAS. Tab names and header order are the `HOJAS`/`ENCABEZADOS` constants at the top of `Code.gs` — treat that as the schema source of truth in code (mirrors `PROYECTO_SEGUIMIENTO_CONVENIOS.md`).
+- **External catalog (read-only, not duplicated):** the Mun/IE/Sedes Sheet (`1sDwOuJk0x1mO6lxJbzzWTd088SOg7fAWEuXSZEM1Eog`, tab `Mun/IE/Sedes`, columns Municipio | Instituciones Educativas | Sede, ~1300 rows, no ID column). `getCatalogoIE()` in `Code.gs` reads it via `SpreadsheetApp.openById()` and returns `{ municipios, instituciones: {municipio: [...]}, sedes: {"municipio||institucion": [...]} }` for cascading selects.
+- **Auth:** magic links — a `token` per user in `usuarios`, passed as `?token=...` to `/lider` or `/padrino`. GAS resolves the token to a user, checks the role matches the endpoint, and returns **only** the data that user is allowed to see — filtering happens server-side in `getLiderConvenios`/`getPadrinoResumen`, not just by hiding UI. No passwords, no login form; `/admin` itself has no auth gate (matches the spec, which only defines magic-link auth for líder/padrino).
+- **GAS ↔ frontend CORS:** GAS doesn't support preflight. POSTs from the frontend use `Content-Type: text/plain` with a JSON-stringified body; GET requests work as plain cross-origin fetches. GAS redirects `/exec` through `script.googleusercontent.com` — `fetch()` follows this transparently, but `curl` needs `-L` (and POST redirects need `--post302 --post303`, or just don't chase them and trust the write happened — the sheet is the ground truth).
+- **Gotcha — `*_ids` columns must stay text:** any comma-joined id list (`proyectos_ids`, `lideres_ids`) risks Sheets silently reinterpreting e.g. `"1,2"` as the decimal number `1.2` (comma as decimal separator) unless the cell is forced to text format first. `escribirValor()` in `Code.gs` handles this automatically for every field ending in `_ids` — if you add a new comma-list field, name it `..._ids` to get this for free, or replicate the `setNumberFormat('@')` call.
+
+### GAS API contract
+
+- `GET ?action=ping` → `{ ok, mensaje }` — health check.
+- `GET ?action=catalogoIE` → the Mun/IE/Sedes structure above.
+- `GET ?action=<entidad>` where `<entidad>` is `proyectos` | `aliados` | `usuarios` | `convenios` | `metas` | `focalizacion` | `asignaciones_sin_focalizacion` → `{ ok, datos: [...] }`, full rows as objects keyed by header name. **Unfiltered** — this is the admin panel's data source; there's no token check on these.
+- `GET ?action=liderConvenios&token=...` → `{ ok, usuario, proyectos, aliados, convenios, metas, focalizacion, asignaciones, padrinos }`, all pre-filtered server-side to the líder's own proyectos (via `usuario.proyectos_ids` ∩ `convenio.proyectos_ids`). `padrinos` is id+nombre only (no correo/token leaked).
+- `GET ?action=padrinoResumen&token=...` → `{ ok, usuario, focalizacion, asignaciones }`, pre-filtered to that padrino's own rows, each enriched with `meta_descripcion`/`convenio_nombre` for display since the padrino doesn't get the full metas/convenios lists.
+- `POST` body (JSON, as `text/plain`): `{ accion: 'crear'|'editar'|'eliminar', entidad, id?, datos? }`, routed generically in `Code.gs` through `ENTIDADES_CRUD` (covers all 7 CRUD entities above). `crear` server-generates `id` (next integer per sheet) and, for `usuarios`, a random 6-char `token`; `editar` ignores attempts to change `id`/`token`. No POST path is token-scoped — all writes go through the open admin API.
+- Adding a new CRUD-managed sheet later: add it to `HOJAS`/`ENCABEZADOS`/`ENTIDADES_CRUD` in `Code.gs` — `listarFilas`/`crearRegistro`/`editarRegistro`/`eliminarRegistro` are already generic over any entry in that map.
+
+### Frontend structure
+
+```
+src/
+├── App.jsx             — BrowserRouter: "/" (Home), "/admin/*", "/lider", "/padrino"
+├── Home.jsx             — hola-mundo / ping healthcheck page
+├── utils/               — shared across admin/lider/padrino
+│   ├── api.js            — GET-only apiGet() (líder/padrino are read-only)
+│   ├── colores.js         — colorPorId() (fixed categorical palette by entity id) + colorAvance() (status palette by %)
+│   ├── formato.js          — soloFecha() (for <input type=date>) / formatearFecha() (dd/mm/aaaa display)
+│   └── avance.js            — ejecutadoDe(meta, focalizacion, asignaciones): shared "ejecutado" calc by tipo
+├── components/           — shared components
+│   ├── EstadoFocalizacion.jsx  — pendiente/programada/realizada badge
+│   └── TarjetaResumen.module.css — card+table styles used by ResumenConvenios, CargaPadrinos, LiderPanel
+├── admin/                — open, full-access panel (no token)
+│   ├── AdminApp.jsx        — nav + nested routes; NavLink `to` values are absolute (`/admin/...`), not relative — see comment in the file for why
+│   ├── utils/api.js        — apiGet + crear/editar/eliminar (mutations) against VITE_GAS_URL
+│   ├── hooks/
+│   │   ├── useEntidad.js     — generic list+CRUD hook for one sheet-backed entity
+│   │   └── useCatalogoIE.js  — fetches/caches the Mun/IE/Sedes catalog (module-level cache, ~1300 rows)
+│   ├── components/
+│   │   ├── TablaCrud.jsx          — generic table+form (text/date/number/select/multiselect) driving useEntidad
+│   │   ├── SelectorInstitucion.jsx — controlled Municipio→Institución→Sede cascading <select>s
+│   │   ├── FilaFocalizacion.jsx     — one focalización row: reasignar padrino, programar/marcar realizada
+│   │   ├── FilaAsignacion.jsx        — one asignación-sin-focalizar row: editable cantidad_asignada/realizada
+│   │   └── EnlaceMagico.jsx           — "Copiar enlace" button, builds the /lider or /padrino URL from a token
+│   └── views/
+│       ├── Proyectos.jsx, Aliados.jsx, Usuarios.jsx  — thin TablaCrud configs
+│       ├── Convenios.jsx, ConvenioDetalle.jsx (metas) — convenio CRUD + per-convenio metas CRUD
+│       ├── FocalizacionMeta.jsx (/admin/metas/:metaId) — focalización alta/asignación/estado for one meta
+│       ├── AsignacionesMeta.jsx (/admin/metas/:metaId/asignaciones) — per-padrino quotas for one meta
+│       ├── ResumenConvenios.jsx (/admin/resumen)  — Actividad/Meta/Ejecutado/%Avance cards per convenio
+│       ├── CargaPadrinos.jsx (/admin/carga-padrinos) — per-padrino asignadas/realizadas, by convenio
+│       ├── VisitasSede.jsx (/admin/visitas-sede)  — all focalización rows + proyecto/municipio/padrino filters
+│       └── Catalogo.jsx        — standalone SelectorInstitucion demo/test page
+├── lider/LiderPanel.jsx  — /lider?token=..., read-only convenios+carga scoped to the líder's proyectos
+└── padrino/
+    ├── PadrinoPanel.jsx    — /padrino?token=..., read-only own focalización+asignaciones
+    └── PadrinoPanel.module.css — mobile-first single-column cards (this is the one view built for phone use in the field)
+```
+
+`proyectos.lideres_ids` and the `convenio_proyectos` sheet tab exist per the original spec's schema but are **not written by the app**: proyecto↔líder is single-sourced from `usuarios.proyectos_ids` (rol `lider`), and convenio↔proyecto is single-sourced from `convenios.proyectos_ids` (comma list, same pattern) rather than the separate join sheet — both to avoid keeping two denormalized copies of the same relation in sync. Computed/derived values (e.g. the "Líderes" column in the Proyectos view) are filtered client-side from `usuarios`, not stored.
 
 ## Data model (Sheets maestro)
 
 Entities and relations — full column-level detail is in `PROYECTO_SEGUIMIENTO_CONVENIOS.md`:
 
-- `proyectos` — the 7 fixed projects; each has one or more `lideres_ids`.
+- `proyectos` — the 7 fixed projects.
 - `aliados` — funders.
-- `convenios` — one aliado per convenio, N:M with `proyectos` via `convenio_proyectos`.
+- `convenios` — one aliado per convenio; `proyectos_ids` (comma list) instead of the `convenio_proyectos` join sheet (see above).
 - `metas` — belong to one convenio; `tipo` is `visita_focalizada`, `visita_sin_focalizar`, or `otro_indicador`. Only the first two get per-padrino tracking; `otro_indicador` metas just carry a `cantidad_realizada` aggregate on the meta row itself.
 - `focalizacion` — one row per pre-assigned school visit under a `visita_focalizada` meta; `padrino_id` is reassignable; `estado` moves `pendiente` → `programada` (sets `fecha_programada`) → `realizada` (sets `fecha_realizada`).
 - `asignaciones_sin_focalizacion` — per-padrino visit quotas (`cantidad_asignada`/`cantidad_realizada`) under a `visita_sin_focalizar` meta, no fixed institution.
@@ -37,23 +118,23 @@ Entities and relations — full column-level detail is in `PROYECTO_SEGUIMIENTO_
 
 ## Roles and access
 
-| Rol | Ve | Edita |
-|---|---|---|
-| Admin/Coordinador | Todo | Todo (convenios, metas, aliados, asignación/reasignación, programación, marcar realizada) |
-| Líder de proyecto | Solo sus proyectos asociados | Nada (solo lectura) |
-| Padrino | Solo sus propias focalizaciones/asignaciones | Nada (solo lectura) |
+| Rol | Ve | Edita | Entry point |
+|---|---|---|---|
+| Admin/Coordinador | Todo | Todo | `/admin` — open, no token |
+| Líder de proyecto | Solo sus proyectos asociados (convenios, metas, focalización, carga) | Nada (solo lectura) | `/lider?token=...` |
+| Padrino | Solo sus propias focalizaciones/asignaciones | Nada (solo lectura) | `/padrino?token=...` |
 
-This means most GAS endpoints are read-heavy and role/token-filtered; write endpoints (create/assign/reassign/schedule/mark-done convenios, metas, focalización) are admin-only — enforce this filtering in GAS, not just by hiding UI in the frontend.
+Enforcement is server-side (see GAS API contract above), not just hidden UI.
 
-## Panels (frontend routes, per PLAN.md phases)
+## Panels (frontend routes)
 
-1. Panel admin — CRUD convenios/metas/aliados/usuarios, focalización assignment, scheduling.
-2. Tabla de convenios — proyecto(s), aliado, vigencia, meta/realizado/% per meta.
-3. Carga de padrinos — visits assigned/realized per padrino, broken down by proyecto/convenio.
-4. Visitas por sede — per institución/sede: realizadas + programadas + total proyectado vs. meta, filterable by proyecto/municipio/padrino.
+1. Panel admin (`/admin/*`) — CRUD proyectos/aliados/usuarios/convenios/metas, focalización assignment/scheduling, asignaciones sin focalizar.
+2. Avance por convenio (`/admin/resumen`) — Actividad/Meta/Ejecutado/%Avance cards, one per convenio.
+3. Carga de padrinos (`/admin/carga-padrinos`) — visits assigned/realized per padrino, broken down by convenio.
+4. Visitas por sede (`/admin/visitas-sede`) — every focalización row with proyecto/municipio/padrino filters.
 5. Vista líder (`/lider?token=...`) and vista padrino (`/padrino?token=...`) — read-only, scoped by token.
 
 ## Deferred (not part of initial launch)
 
-- Automatic magic-link emails (the `correo` column exists on `usuarios` for this later).
+- Automatic magic-link emails (the `correo` column exists on `usuarios` for this later) — for now, the admin copies the link manually from Usuarios (`EnlaceMagico` button) and sends it however.
 - Excel import for focalización — data entry is manual for now.

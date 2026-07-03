@@ -20,8 +20,11 @@ const ENCABEZADOS = {
   [HOJAS.ALIADOS]: ['id', 'nombre'],
   [HOJAS.CONVENIOS]: [
     'id', 'nombre', 'aliado_id', 'anio_vigencia',
-    'fecha_inicio', 'fecha_fin', 'estado',
+    'fecha_inicio', 'fecha_fin', 'estado', 'proyectos_ids',
   ],
+  // convenio_proyectos queda sin usar: la relación convenio↔proyecto se
+  // guarda como proyectos_ids directo en convenios (mismo criterio que
+  // usuarios.proyectos_ids en Fase 1) para no mantener dos hojas en sync.
   [HOJAS.CONVENIO_PROYECTOS]: ['convenio_id', 'proyecto_id'],
   [HOJAS.METAS]: [
     'id', 'convenio_id', 'descripcion', 'cantidad_meta', 'tipo',
@@ -45,6 +48,10 @@ const ENTIDADES_CRUD = {
   proyectos: HOJAS.PROYECTOS,
   aliados: HOJAS.ALIADOS,
   usuarios: HOJAS.USUARIOS,
+  convenios: HOJAS.CONVENIOS,
+  metas: HOJAS.METAS,
+  focalizacion: HOJAS.FOCALIZACION,
+  asignaciones_sin_focalizacion: HOJAS.ASIGNACIONES_SIN_FOCALIZACION,
 };
 
 // Catálogo externo de Municipio/Institución/Sede (solo lectura, no se duplica).
@@ -62,6 +69,8 @@ function doGet(e) {
   try {
     if (action === 'ping') return responder({ ok: true, mensaje: 'hola mundo' });
     if (action === 'catalogoIE') return responder(getCatalogoIE());
+    if (action === 'liderConvenios') return responder(getLiderConvenios(e.parameter.token));
+    if (action === 'padrinoResumen') return responder(getPadrinoResumen(e.parameter.token));
     if (ENTIDADES_CRUD[action]) {
       return responder({ ok: true, datos: listarFilas(ENTIDADES_CRUD[action]) });
     }
@@ -123,8 +132,10 @@ function crearRegistro(entidad, datos) {
     registro.token = generarToken(tokensExistentes(hoja));
   }
 
-  const fila = encabezados.map(campo => (registro[campo] !== undefined ? registro[campo] : ''));
-  hoja.appendRow(fila);
+  const filaIndex = hoja.getLastRow() + 1;
+  encabezados.forEach((campo, i) => {
+    escribirValor(hoja, filaIndex, i + 1, campo, registro[campo] !== undefined ? registro[campo] : '');
+  });
 
   return { ok: true, datos: registro };
 }
@@ -141,11 +152,22 @@ function editarRegistro(entidad, id, cambios) {
   encabezados.forEach((campo, i) => {
     if (campo === 'id' || campo === 'token') return;
     if (cambios[campo] !== undefined) {
-      hoja.getRange(fila, i + 1).setValue(cambios[campo]);
+      escribirValor(hoja, fila, i + 1, campo, cambios[campo]);
     }
   });
 
   return { ok: true };
+}
+
+// Campos "*_ids" (proyectos_ids, lideres_ids) guardan listas separadas por
+// coma como "1,2". Sin forzar formato de texto, Sheets interpreta esa coma
+// como separador decimal (locale es-*) y silenciosamente convierte "1,2" en
+// el número 1.2, corrompiendo la relación. setNumberFormat('@') antes de
+// escribir evita que eso vuelva a pasar.
+function escribirValor(hoja, filaIndex, colIndex, campo, valor) {
+  const rango = hoja.getRange(filaIndex, colIndex);
+  if (campo.endsWith('_ids')) rango.setNumberFormat('@');
+  rango.setValue(valor);
 }
 
 function eliminarRegistro(entidad, id) {
@@ -243,6 +265,98 @@ function mapaDeSetsAArrays(mapaDeSets) {
     resultado[clave] = Array.from(mapaDeSets[clave]).sort();
   });
   return resultado;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Accesos por rol (magic links) — Fase 6
+//
+// El filtrado por rol se hace acá, en el servidor: un padrino nunca recibe
+// en la respuesta HTTP las focalizaciones/asignaciones de otro padrino, ni
+// un líder los convenios de proyectos que no lidera — no es solo una vista
+// que se oculta en el frontend.
+// ─────────────────────────────────────────────────────────────
+
+function usuarioPorToken(token) {
+  if (!token) return null;
+  return listarFilas(HOJAS.USUARIOS).find(u => String(u.token).trim() === String(token).trim()) || null;
+}
+
+function idsDeLista(valor) {
+  return String(valor || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function getLiderConvenios(token) {
+  const usuario = usuarioPorToken(token);
+  if (!usuario) return { ok: false, error: 'Token inválido' };
+  if (usuario.rol !== 'lider') return { ok: false, error: 'Este token no corresponde a un líder' };
+
+  const misProyectosIds = idsDeLista(usuario.proyectos_ids);
+
+  const convenios = listarFilas(HOJAS.CONVENIOS).filter(c =>
+    idsDeLista(c.proyectos_ids).some(pid => misProyectosIds.includes(pid))
+  );
+  const convenioIds = convenios.map(c => String(c.id));
+
+  const metas = listarFilas(HOJAS.METAS).filter(m => convenioIds.includes(String(m.convenio_id)));
+  const metaIds = metas.map(m => String(m.id));
+
+  const focalizacion = listarFilas(HOJAS.FOCALIZACION).filter(f => metaIds.includes(String(f.meta_id)));
+  const asignaciones = listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION).filter(a => metaIds.includes(String(a.meta_id)));
+
+  const padrinoIds = new Set([
+    ...focalizacion.map(f => String(f.padrino_id)),
+    ...asignaciones.map(a => String(a.padrino_id)),
+  ]);
+  // Solo id+nombre de los padrinos involucrados: el líder no necesita ver
+  // correo ni token de nadie más.
+  const padrinos = listarFilas(HOJAS.USUARIOS)
+    .filter(u => padrinoIds.has(String(u.id)))
+    .map(u => ({ id: u.id, nombre: u.nombre }));
+
+  return {
+    ok: true,
+    usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol },
+    proyectos: listarFilas(HOJAS.PROYECTOS).filter(p => misProyectosIds.includes(String(p.id))),
+    aliados: listarFilas(HOJAS.ALIADOS),
+    convenios,
+    metas,
+    focalizacion,
+    asignaciones,
+    padrinos,
+  };
+}
+
+function getPadrinoResumen(token) {
+  const usuario = usuarioPorToken(token);
+  if (!usuario) return { ok: false, error: 'Token inválido' };
+  if (usuario.rol !== 'padrino') return { ok: false, error: 'Este token no corresponde a un padrino' };
+
+  const focalizacion = listarFilas(HOJAS.FOCALIZACION).filter(f => String(f.padrino_id) === String(usuario.id));
+  const asignaciones = listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION).filter(a => String(a.padrino_id) === String(usuario.id));
+
+  const metaIds = new Set([...focalizacion.map(f => String(f.meta_id)), ...asignaciones.map(a => String(a.meta_id))]);
+  const metas = listarFilas(HOJAS.METAS).filter(m => metaIds.has(String(m.id)));
+  const metaPorId = Object.fromEntries(metas.map(m => [String(m.id), m]));
+
+  const convenioIds = new Set(metas.map(m => String(m.convenio_id)));
+  const convenios = listarFilas(HOJAS.CONVENIOS).filter(c => convenioIds.has(String(c.id)));
+  const convenioPorId = Object.fromEntries(convenios.map(c => [String(c.id), c]));
+
+  function conContexto(item) {
+    const meta = metaPorId[String(item.meta_id)];
+    const convenio = meta && convenioPorId[String(meta.convenio_id)];
+    return Object.assign({}, item, {
+      meta_descripcion: meta ? meta.descripcion : '',
+      convenio_nombre: convenio ? convenio.nombre : '',
+    });
+  }
+
+  return {
+    ok: true,
+    usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol },
+    focalizacion: focalizacion.map(conContexto),
+    asignaciones: asignaciones.map(conContexto),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────

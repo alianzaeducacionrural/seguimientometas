@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { formatearFecha, soloFecha } from '../../utils/formato'
 
-const VACIO_POR_TIPO = { text: '', select: '', multiselect: [] }
+const VACIO_POR_TIPO = { text: '', date: '', number: '', select: '', multiselect: [] }
 
 function valorInicial(campos, fila) {
   const form = {}
@@ -10,9 +11,13 @@ function valorInicial(campos, fila) {
       return
     }
     const crudo = fila[campo.clave] ?? ''
-    form[campo.clave] = campo.tipo === 'multiselect'
-      ? String(crudo).split(',').map((v) => v.trim()).filter(Boolean)
-      : crudo
+    if (campo.tipo === 'multiselect') {
+      form[campo.clave] = String(crudo).split(',').map((v) => v.trim()).filter(Boolean)
+    } else if (campo.tipo === 'date') {
+      form[campo.clave] = soloFecha(crudo)
+    } else {
+      form[campo.clave] = crudo
+    }
   })
   return form
 }
@@ -130,7 +135,7 @@ export default function TablaCrud({ titulo, campos, columnasExtra = [], filas, o
           return (
             <input
               key={campo.clave}
-              type="text"
+              type={campo.tipo === 'date' || campo.tipo === 'number' ? campo.tipo : 'text'}
               placeholder={campo.label}
               required={campo.requerido}
               value={form[campo.clave]}
@@ -159,7 +164,9 @@ export default function TablaCrud({ titulo, campos, columnasExtra = [], filas, o
             <tr key={fila.id}>
               <td>{fila.id}</td>
               {campos.map((c) => (
-                <td key={c.clave}>{c.columna ? c.columna(fila) : String(fila[c.clave] ?? '')}</td>
+                <td key={c.clave}>
+                  {c.columna ? c.columna(fila) : c.tipo === 'date' ? formatearFecha(fila[c.clave]) : String(fila[c.clave] ?? '')}
+                </td>
               ))}
               {columnasExtra.map((c) => <td key={c.label}>{c.render(fila)}</td>)}
               <td>
