@@ -1,1 +1,0 @@
-:root{--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light dark;font:16px/1.5 system-ui,Segoe UI,Roboto,sans-serif}@media (prefers-color-scheme:dark){:root{--lightningcss-light: ;--lightningcss-dark:initial}}body{margin:0}#root{min-height:100svh}
