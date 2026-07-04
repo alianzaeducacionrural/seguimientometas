@@ -37,7 +37,7 @@ GitHub Pages redeploys only on push to `main` (no `workflow_dispatch`) — to re
 
 ## Project overview
 
-Sistema de Seguimiento a Convenios, Focalización y Carga de Padrinos, for the Área de Educación of Comité de Cafeteros de Caldas. It tracks agreements (`convenios`) with external funders (`aliados`) across the area's 7 projects (Escuela Nueva, Posprimaria, Educación Media, Escuela y Café, Seguridad Alimentaria, Escuela Virtual, La Universidad en el Campo). Each convenio has goals (`metas`); some goals require visiting specific pre-assigned schools (`focalización`), others just distribute a visit quota among volunteers (`padrinos`) without a fixed institution. The platform gives coordinators a consolidated view of progress per convenio, lets them assign/reassign focalización to padrinos and schedule visits, and gives padrinos and project leads read-only views scoped to their own data via magic links.
+Sistema de Seguimiento a Convenios, Focalización y Carga de Padrinos, for the Área de Educación of Comité de Cafeteros de Caldas. It tracks agreements (`convenios`) with external funders (`aliados`) across the area's 7 projects (Escuela Nueva, Posprimaria, Educación Media, Escuela y Café, Seguridad Alimentaria, Escuela Virtual, La Universidad en el Campo). Each convenio has goals (`metas`); some goals require visiting specific pre-assigned schools (`focalización`), others just distribute a visit quota among volunteers (`padrinos`) without a fixed institution. The platform gives coordinators a consolidated view of progress per convenio, lets them assign/reassign focalización to padrinos and schedule visits, and gives padrinos and project leads views scoped to their own data via magic links — padrinos are fully read-only, líderes are read-only except for their own focalización, which they can also reassign/reschedule.
 
 ## Architecture
 
@@ -47,7 +47,7 @@ Same stack and pattern as the sibling project `../Seguimiento a egresados`:
 - **Backend:** Google Apps Script (GAS) Web App (`gas/Code.gs`) — `doGet`/`doPost` handlers, no server of its own. Container-bound to the Sheets maestro.
 - **Database:** the Sheets maestro (one tab per entity, see below), read/written entirely through GAS. Tab names and header order are the `HOJAS`/`ENCABEZADOS` constants at the top of `Code.gs` — treat that as the schema source of truth in code (mirrors `PROYECTO_SEGUIMIENTO_CONVENIOS.md`).
 - **External catalog (read-only, not duplicated):** the Mun/IE/Sedes Sheet (`1sDwOuJk0x1mO6lxJbzzWTd088SOg7fAWEuXSZEM1Eog`). Two tabs are read via `SpreadsheetApp.openById()` in `Code.gs`: tab `Mun/IE/Sedes` (columns Municipio | Instituciones Educativas | Sede, ~1300 rows, no ID column) through `getCatalogoIE()` → `{ municipios, instituciones: {municipio: [...]}, sedes: {"municipio||institucion": [...]} }` for cascading selects; and the padrinos tab (located by gid `1978199793`, not by name — columns A:B are Padrinos | Email) through `getCatalogoPadrinos()` → `{ padrinos: [{nombre, correo}] }`. Padrinos are **picked from this catalog** in the Usuarios view (correo auto-filled), never typed by hand; the same tab also has a wider staff list with phones/passwords in columns H:K, which the app deliberately ignores.
-- **Auth:** magic links — a `token` per user in `usuarios`, passed as `?token=...` to `/lider` or `/padrino`. GAS resolves the token to a user, checks the role matches the endpoint, and returns **only** the data that user is allowed to see — filtering happens server-side in `getLiderConvenios`/`getPadrinoResumen`, not just by hiding UI. No passwords, no login form; `/admin` itself has no auth gate (matches the spec, which only defines magic-link auth for líder/padrino).
+- **Auth:** magic links — a `token` per user in `usuarios`, passed as `?token=...` to `/lider` or `/padrino`. GAS resolves the token to a user, checks the role matches the endpoint, and returns **only** the data that user is allowed to see — filtering happens server-side in `getLiderConvenios`/`getPadrinoResumen`, not just by hiding UI. No passwords, no login form; `/admin` itself has no auth gate (matches the spec, which only defines magic-link auth for líder/padrino). Padrino stays fully read-only; líder can additionally write to `focalizacion`/`asignaciones_sin_focalizacion` (reasignar padrino, cambiar estado) via `src/utils/api.js`'s `editar()` — this isn't token-enforced server-side (see below), the scoping is that the líder UI only ever passes ids it already fetched pre-filtered to their own proyectos.
 - **GAS ↔ frontend CORS:** GAS doesn't support preflight. POSTs from the frontend use `Content-Type: text/plain` with a JSON-stringified body; GET requests work as plain cross-origin fetches. GAS redirects `/exec` through `script.googleusercontent.com` — `fetch()` follows this transparently, but `curl` needs `-L` (and POST redirects need `--post302 --post303`, or just don't chase them and trust the write happened — the sheet is the ground truth).
 - **Gotcha — `*_ids` columns must stay text:** any comma-joined id list (`proyectos_ids`, `lideres_ids`) risks Sheets silently reinterpreting e.g. `"1,2"` as the decimal number `1.2` (comma as decimal separator) unless the cell is forced to text format first. `escribirValor()` in `Code.gs` handles this automatically for every field ending in `_ids` — if you add a new comma-list field, name it `..._ids` to get this for free, or replicate the `setNumberFormat('@')` call.
 
@@ -58,7 +58,7 @@ Same stack and pattern as the sibling project `../Seguimiento a egresados`:
 - `GET ?action=catalogoPadrinos` → `{ ok, padrinos: [{nombre, correo}] }` from the external catalog's padrinos tab, sorted by nombre.
 - `POST {accion:'importarPadrinos'}` → bulk-creates a rol-padrino usuario (with token) for every catalog padrino not yet present; dedupes by correo (case-insensitive), so it's idempotent → `{ ok, creados, omitidos }`. Triggered by the "Importar padrinos del catálogo" button in Usuarios.
 - `GET ?action=<entidad>` where `<entidad>` is `proyectos` | `actividades` | `aliados` | `usuarios` | `convenios` | `metas` | `focalizacion` | `asignaciones_sin_focalizacion` → `{ ok, datos: [...] }`, full rows as objects keyed by header name. **Unfiltered** — this is the admin panel's data source; there's no token check on these.
-- `GET ?action=liderConvenios&token=...` → `{ ok, usuario, proyectos, aliados, convenios, metas, focalizacion, asignaciones, padrinos }`, all pre-filtered server-side to the líder's own proyectos (via `usuario.proyectos_ids` ∩ `convenio.proyectos_ids`). `padrinos` is id+nombre only (no correo/token leaked).
+- `GET ?action=liderConvenios&token=...` → `{ ok, usuario, proyectos, aliados, convenios, metas, focalizacion, asignaciones, padrinos }`, all pre-filtered server-side to the líder's own proyectos (via `usuario.proyectos_ids` ∩ `convenio.proyectos_ids`). `padrinos` is **all** rol-padrino usuarios (id+nombre only, no correo/token leaked) — not just the ones already involved, so the líder can reassign a visit to anyone, including someone with zero current carga.
 - `GET ?action=padrinoResumen&token=...` → `{ ok, usuario, focalizacion, asignaciones }`, pre-filtered to that padrino's own rows, each enriched with `meta_descripcion`/`convenio_nombre` for display since the padrino doesn't get the full metas/convenios lists.
 - `POST` body (JSON, as `text/plain`): `{ accion: 'crear'|'editar'|'eliminar', entidad, id?, datos? }`, routed generically in `Code.gs` through `ENTIDADES_CRUD` (covers all 7 CRUD entities above). `crear` server-generates `id` (next integer per sheet) and, for `usuarios`, a random 6-char `token`; `editar` ignores attempts to change `id`/`token`. No POST path is token-scoped — all writes go through the open admin API.
 - Adding a new CRUD-managed sheet later: add it to `HOJAS`/`ENCABEZADOS`/`ENTIDADES_CRUD` in `Code.gs` — `listarFilas`/`crearRegistro`/`editarRegistro`/`eliminarRegistro` are already generic over any entry in that map, and `hojaDe()` auto-creates the physical tab (with headers) on first access.
@@ -73,7 +73,7 @@ src/
 ├── App.jsx             — BrowserRouter: "/" (Home), "/admin/*", "/lider", "/padrino"
 ├── Home.jsx             — hola-mundo / ping healthcheck page
 ├── utils/               — shared across admin/lider/padrino
-│   ├── api.js            — GET-only apiGet() (líder/padrino are read-only)
+│   ├── api.js            — apiGet() (líder/padrino reads) + editar() (líder-only write, used by LiderPanel's Focalización tab; padrino never calls it)
 │   ├── colores.js         — colorPorId() (fixed categorical palette by entity id) + colorAvance() (status palette by %)
 │   ├── formato.js          — soloFecha() (for <input type=date>) / formatearFecha() (dd/mm/aaaa display)
 │   ├── avance.js            — ejecutadoDe(meta, focalizacion, asignaciones): shared "ejecutado" calc by tipo
@@ -85,7 +85,9 @@ src/
 │   ├── Modal.jsx                 — shared modal (overlay + Escape/click-outside close); ALL create/edit forms open in modals, not inline
 │   ├── Avatar.jsx                — initials circle colored by colorPorId, used in Usuarios table and ActividadesPadrino/LiderPanel
 │   ├── Flecha.jsx                 — shared accordion chevron (rotates + turns aguamarina when open), used by TablaCrud, ActividadesPadrino and LiderPanel
-│   ├── TarjetaVisitaFocalizacion.jsx — read-only focalización card: municipio - institución - sede + estado badge only (no convenio/meta); takes optional `children` for admin's action buttons
+│   ├── TarjetaVisitaFocalizacion.jsx — read-only focalización card: municipio - institución - sede + estado badge only (no convenio/meta); takes optional `children` for action buttons
+│   ├── TarjetaVisitaEditable.jsx    — wraps TarjetaVisitaFocalizacion with Reasignar/Cambiar-estado buttons + their modals; shared by admin's ActividadesPadrino and LiderPanel's Focalización tab (both places the líder or admin actually gets to act)
+│   ├── FilaAsignacionCompacta.jsx    — one asignación-sin-focalizar row (convenio/meta/asignada/realizada/pendiente + reasignar select) for inside a padrino's accordion panel; shared by the same two views
 │   ├── ColumnasVisitas.jsx        — the shared two-column Pendientes | Realizadas layout (`.columnas-visitas`, auto-stacks on narrow screens), driven by a `renderTarjeta` callback; used by ActividadesPadrino, LiderPanel and PadrinoPanel
 │   ├── Iconos.jsx                — the app's single stroke-icon set (one per nav section)
 │   ├── MarcaLogo.jsx             — inline-SVG brand mark (coffee leaf; `invertido` for green backgrounds), also mirrored in public/favicon.svg
@@ -111,10 +113,13 @@ src/
 │       ├── FocalizacionMeta.jsx (/admin/metas/:metaId) — focalización alta/asignación/estado for one meta
 │       ├── AsignacionesMeta.jsx (/admin/metas/:metaId/asignaciones) — per-padrino quotas for one meta
 │       ├── ResumenConvenios.jsx (/admin/resumen)  — Actividad/Meta/Ejecutado/%Avance cards per convenio
-│       ├── ActividadesPadrino.jsx (/admin/actividades-padrino) — per-padrino asignadas/realizadas/pendientes quick table; each row expands into a two-column accordion (Pendientes | Realizadas) of that padrino's focalización visits, each with "Reasignar" (padrino) and "Cambiar estado" buttons opening their own modal; the estado modal offers Programar/Marcar realizada/Volver a pendiente per the transitions in `estadoFocalizacion.js`, hidden once realizada; a compact table below covers asignaciones_sin_focalizacion quotas if any
+│       ├── ActividadesPadrino.jsx (/admin/actividades-padrino) — per-padrino asignadas/realizadas/pendientes quick table; each row expands into a two-column accordion (Pendientes | Realizadas) of that padrino's focalización visits, rendered with the shared `TarjetaVisitaEditable` ("Reasignar" + "Cambiar estado" buttons, each opening their own modal; the estado modal offers Programar/Marcar realizada/Volver a pendiente per the transitions in `estadoFocalizacion.js`, hidden once realizada); a compact table below (shared `FilaAsignacionCompacta`) covers asignaciones_sin_focalizacion quotas if any — same two components LiderPanel's Focalización tab reuses
 │       ├── VisitasSede.jsx (/admin/visitas-sede)  — all focalización rows + proyecto/municipio/padrino filters
 │       └── Catalogo.jsx        — read-only browser of the Mun/IE/Sedes catalog (KPIs + municipio/institución filters), linked in the nav as "Catálogo IE"
-├── lider/LiderPanel.jsx  — /lider?token=..., read-only convenios+carga scoped to the líder's proyectos. "Carga de padrinos" is the same accordion-table pattern as admin's ActividadesPadrino (quick asignadas/realizadas/pendientes row per padrino, expands into ColumnasVisitas), with municipio+padrino filters, but read-only — TarjetaVisitaFocalizacion renders with no `children` (no Reasignar/Cambiar estado)
+├── lider/LiderPanel.jsx  — /lider?token=..., convenios+metas+focalización scoped to the líder's proyectos (one or several — a `proyecto` filter select appears only if the líder leads more than one, applied to all 3 tabs by filtering convenios by `proyectos_ids` and metas by `proyecto_id`, same fallback-to-convenio logic as VisitasSede). Three `.pestanas` tabs (plain useState, no router):
+│   ├── "Seguimiento a metas" — the convenio/meta avance table (unchanged from before tabs existed).
+│   ├── "Vista de padrinos" — read-only, a flat (non-accordion) Padrino/Asignadas/Realizadas/Pendientes table, for at-a-glance team load leveling; no action buttons.
+│   └── "Focalización" — accionable: the same accordion-table pattern as admin's ActividadesPadrino (quick row per padrino expands into ColumnasVisitas), but here the cards ARE `TarjetaVisitaEditable`/`FilaAsignacionCompacta` — the líder can reasignar padrino and cambiar estado on their own proyectos' focalización. Writes go through `utils/api.js`'s `editar()` followed by a full re-fetch of `liderConvenios` (there's no per-entity useEntidad hook here, just one combined GET refreshed after every mutation)
 └── padrino/
     ├── PadrinoPanel.jsx    — /padrino?token=..., read-only own focalización+asignaciones. "Tus visitas focalizadas" uses ColumnasVisitas (Pendientes | Realizadas) with a municipio filter (shown only if the padrino has visits in more than one); "Tus visitas sin focalizar" stays a flat list (no fixed sede, so no columnas split applies)
     └── PadrinoPanel.module.css — mobile-first single-column cards (this is the one view built for phone use in the field); `.columnas-visitas` naturally collapses to one column here since its 480px-max container can't fit two 240px-min columns side by side
@@ -140,10 +145,10 @@ Entities and relations — full column-level detail is in `PROYECTO_SEGUIMIENTO_
 | Rol | Ve | Edita | Entry point |
 |---|---|---|---|
 | Admin/Coordinador | Todo | Todo | `/admin` — open, no token |
-| Líder de proyecto | Solo sus proyectos asociados (convenios, metas, focalización, carga) | Nada (solo lectura) | `/lider?token=...` |
+| Líder de proyecto | Solo sus proyectos asociados (convenios, metas, focalización, carga) | Focalización de sus proyectos: reasignar padrino, cambiar estado. El resto (convenios, metas) solo lectura | `/lider?token=...` |
 | Padrino | Solo sus propias focalizaciones/asignaciones | Nada (solo lectura) | `/padrino?token=...` |
 
-Enforcement is server-side (see GAS API contract above), not just hidden UI.
+Enforcement is server-side for what data each token can *see* (see GAS API contract above). The líder's write actions are NOT server-enforced beyond that — same as the open admin POST API — the UI just never offers ids outside the líder's own pre-filtered data.
 
 ## Panels (frontend routes)
 
@@ -151,7 +156,8 @@ Enforcement is server-side (see GAS API contract above), not just hidden UI.
 2. Avance por convenio (`/admin/resumen`) — Actividad/Meta/Ejecutado/%Avance cards, one per convenio.
 3. Actividades por padrino (`/admin/actividades-padrino`) — visits assigned/realized/pending per padrino, expandable per row into pending vs. realized visits with inline reassignment.
 4. Visitas por sede (`/admin/visitas-sede`) — every focalización row with proyecto/municipio/padrino filters.
-5. Vista líder (`/lider?token=...`) and vista padrino (`/padrino?token=...`) — read-only, scoped by token; both split focalización into Pendientes/Realizadas columns (see LiderPanel/PadrinoPanel above).
+5. Vista líder (`/lider?token=...`) — 3 tabs (seguimiento a metas, vista de padrinos, focalización); only the focalización tab allows action, the rest is read-only. See LiderPanel above.
+6. Vista padrino (`/padrino?token=...`) — fully read-only; splits focalización into Pendientes/Realizadas columns (see PadrinoPanel above).
 
 ## Deferred (not part of initial launch)
 

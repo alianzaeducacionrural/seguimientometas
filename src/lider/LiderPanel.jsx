@@ -1,21 +1,31 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { apiGet } from '../utils/api'
+import { apiGet, editar } from '../utils/api'
 import { colorAvance, colorPorId } from '../utils/colores'
 import { ejecutadoDe } from '../utils/avance'
 import { totalesDe, conContexto } from '../utils/cargaPadrino'
+import { accionesEstadoFocalizacion } from '../utils/estadoFocalizacion'
 import estilos from '../components/TarjetaResumen.module.css'
 import { AvisoError, Cargando, Vacio } from '../components/Estado'
 import MarcaLogo from '../components/MarcaLogo'
 import Avatar from '../components/Avatar'
 import Flecha from '../components/Flecha'
-import TarjetaVisitaFocalizacion from '../components/TarjetaVisitaFocalizacion'
+import TarjetaVisitaEditable from '../components/TarjetaVisitaEditable'
 import ColumnasVisitas from '../components/ColumnasVisitas'
+import FilaAsignacionCompacta from '../components/FilaAsignacionCompacta'
 
-// Solo lectura: convenios/metas/focalización/carga de los proyectos que
-// lidera, filtrados en el servidor por el token (ver getLiderConvenios en
-// Code.gs) — acá no hay ningún dato de otros proyectos que ocultar, porque
-// el backend nunca lo manda.
+const PESTANAS = [
+  { id: 'metas', etiqueta: 'Seguimiento a metas' },
+  { id: 'padrinos', etiqueta: 'Vista de padrinos' },
+  { id: 'focalizacion', etiqueta: 'Focalización' },
+]
+
+// El líder ve convenios/metas/focalización/carga de sus proyectos (uno o
+// varios, filtrados en el servidor por el token — ver getLiderConvenios en
+// Code.gs) en tres pestañas: avance de metas (lectura), carga por padrino
+// (lectura, para nivelar el equipo) y focalización (acá SÍ puede actuar:
+// reasignar padrino y avanzar/revertir el estado de la visita, igual que
+// Actividades por padrino en el admin — ver TarjetaVisitaEditable).
 export default function LiderPanel() {
   const [params] = useSearchParams()
   const token = params.get('token') || ''
@@ -23,42 +33,145 @@ export default function LiderPanel() {
   const [datos, setDatos] = useState(null)
   const [error, setError] = useState(token ? null : 'Falta el token en el enlace.')
   const [cargando, setCargando] = useState(Boolean(token))
+  const [pestana, setPestana] = useState('metas')
+  const [proyectoId, setProyectoId] = useState('')
   const [abiertoId, setAbiertoId] = useState(null)
   const [municipio, setMunicipio] = useState('')
   const [padrinoId, setPadrinoId] = useState('')
 
-  useEffect(() => {
-    if (!token) return
-    apiGet('liderConvenios', { token })
+  const cargar = useCallback(() => {
+    if (!token) return Promise.resolve()
+    return apiGet('liderConvenios', { token })
       .then(setDatos)
       .catch((err) => setError(err.message))
       .finally(() => setCargando(false))
   }, [token])
+
+  useEffect(() => { cargar() }, [cargar])
 
   if (cargando) return <Envoltorio><Cargando /></Envoltorio>
   if (error) return <Envoltorio><AvisoError>{error}</AvisoError></Envoltorio>
 
   const { usuario, convenios, metas, focalizacion, asignaciones, aliados, proyectos, padrinos } = datos
 
+  async function editarFocalizacion(id, campos) {
+    await editar('focalizacion', id, campos)
+    await cargar()
+  }
+
+  async function editarAsignacion(id, campos) {
+    await editar('asignaciones_sin_focalizacion', id, campos)
+    await cargar()
+  }
+
+  const { programar, marcarRealizada, volverAPendiente } = accionesEstadoFocalizacion(editarFocalizacion)
+
+  // El filtro de proyecto solo aplica si el líder tiene más de uno: filtra
+  // convenios por proyectos_ids y, dentro de ellos, metas por proyecto_id
+  // (cayendo al convenio ya filtrado si la meta es vieja y no lo tiene).
+  const conveniosFiltrados = proyectoId
+    ? convenios.filter((c) => String(c.proyectos_ids).split(',').map((v) => v.trim()).includes(proyectoId))
+    : convenios
+  const convenioIdsFiltrados = new Set(conveniosFiltrados.map((c) => String(c.id)))
+  const metasFiltradas = metas.filter((m) => {
+    if (!convenioIdsFiltrados.has(String(m.convenio_id))) return false
+    if (!proyectoId) return true
+    const proyectoMeta = String(m.proyecto_id || '').trim()
+    return proyectoMeta ? proyectoMeta === proyectoId : true
+  })
+  const metaIdsFiltradas = new Set(metasFiltradas.map((m) => String(m.id)))
+
   const metaPorId = Object.fromEntries(metas.map((m) => [String(m.id), m]))
   const convenioPorId = Object.fromEntries(convenios.map((c) => [String(c.id), c]))
-  const focalizacionConContexto = focalizacion.map((f) => conContexto(f, metaPorId, convenioPorId))
-  const asignacionesConContexto = asignaciones.map((a) => conContexto(a, metaPorId, convenioPorId))
+
+  const focalizacionPorProyecto = (proyectoId ? focalizacion.filter((f) => metaIdsFiltradas.has(String(f.meta_id))) : focalizacion)
+    .map((f) => conContexto(f, metaPorId, convenioPorId))
+  const asignacionesPorProyecto = (proyectoId ? asignaciones.filter((a) => metaIdsFiltradas.has(String(a.meta_id))) : asignaciones)
+    .map((a) => conContexto(a, metaPorId, convenioPorId))
 
   // El filtro de municipio solo aplica a focalización (asignaciones sin
   // focalizar no tienen sede fija, así que no se ven afectadas por él).
   const focalizacionFiltrada = municipio
-    ? focalizacionConContexto.filter((f) => f.municipio === municipio)
-    : focalizacionConContexto
-  const municipios = Array.from(new Set(focalizacion.map((f) => f.municipio).filter(Boolean))).sort()
+    ? focalizacionPorProyecto.filter((f) => f.municipio === municipio)
+    : focalizacionPorProyecto
+  const municipios = Array.from(new Set(focalizacionPorProyecto.map((f) => f.municipio).filter(Boolean))).sort()
 
-  const padrinosConCarga = padrinos.filter((p) => {
-    if (padrinoId && String(p.id) !== padrinoId) return false
-    return true
-  })
+  const padrinosConCargaTotal = padrinos.filter(
+    (p) => totalesDe(p.id, focalizacionFiltrada, asignacionesPorProyecto).asignadas > 0
+  )
+  const padrinosConCarga = padrinoId
+    ? padrinosConCargaTotal.filter((p) => String(p.id) === padrinoId)
+    : padrinosConCargaTotal
 
   return (
     <Envoltorio nombre={usuario.nombre} proyectos={proyectos}>
+      {proyectos.length > 1 && (
+        <div className="filtros">
+          <select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)}>
+            <option value="">Todos tus proyectos</option>
+            {proyectos.map((p) => (
+              <option key={p.id} value={String(p.id)}>{p.nombre}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="pestanas">
+        {PESTANAS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`pestana${pestana === p.id ? ' pestana-activa' : ''}`}
+            onClick={() => setPestana(p.id)}
+          >
+            {p.etiqueta}
+          </button>
+        ))}
+      </div>
+
+      {pestana === 'metas' && (
+        <SeguimientoMetas convenios={conveniosFiltrados} metas={metasFiltradas} aliados={aliados} focalizacion={focalizacion} asignaciones={asignaciones} />
+      )}
+
+      {pestana === 'padrinos' && (
+        <VistaPadrinos
+          padrinos={padrinosConCargaTotal}
+          focalizacion={focalizacionFiltrada}
+          asignaciones={asignacionesPorProyecto}
+          municipio={municipio}
+          setMunicipio={setMunicipio}
+          municipios={municipios}
+        />
+      )}
+
+      {pestana === 'focalizacion' && (
+        <TablaFocalizacion
+          padrinos={padrinos}
+          padrinosConCarga={padrinosConCarga}
+          focalizacion={focalizacionFiltrada}
+          asignaciones={asignacionesPorProyecto}
+          municipio={municipio}
+          setMunicipio={setMunicipio}
+          municipios={municipios}
+          padrinoId={padrinoId}
+          setPadrinoId={setPadrinoId}
+          padrinosParaFiltro={padrinosConCargaTotal}
+          abiertoId={abiertoId}
+          setAbiertoId={setAbiertoId}
+          onReasignarFocalizacion={(id, nuevoPadrinoId) => editarFocalizacion(id, { padrino_id: nuevoPadrinoId })}
+          onProgramar={programar}
+          onMarcarRealizada={marcarRealizada}
+          onVolverPendiente={volverAPendiente}
+          onReasignarAsignacion={(id, nuevoPadrinoId) => editarAsignacion(id, { padrino_id: nuevoPadrinoId })}
+        />
+      )}
+    </Envoltorio>
+  )
+}
+
+function SeguimientoMetas({ convenios, metas, aliados, focalizacion, asignaciones }) {
+  return (
+    <>
       <h2>Avance de tus convenios</h2>
       {convenios.length === 0 && <Vacio>Todavía no hay convenios en tus proyectos.</Vacio>}
       {convenios.map((convenio) => {
@@ -113,9 +226,83 @@ export default function LiderPanel() {
           </div>
         )
       })}
+    </>
+  )
+}
 
-      <h2>Carga de padrinos</h2>
+// Vista rápida de solo lectura para nivelar la carga del equipo: una fila
+// por padrino con sus cifras, sin acordeón — para actuar sobre una visita
+// puntual está la pestaña Focalización.
+function VistaPadrinos({ padrinos, focalizacion, asignaciones, municipio, setMunicipio, municipios }) {
+  return (
+    <>
+      <h2>Carga de tus padrinos</h2>
       {padrinos.length === 0 ? (
+        <Vacio>Todavía no hay padrinos con visitas asignadas en tus convenios.</Vacio>
+      ) : (
+        <>
+          {municipios.length > 1 && (
+            <div className="filtros">
+              <select value={municipio} onChange={(e) => setMunicipio(e.target.value)}>
+                <option value="">Todos los municipios</option>
+                {municipios.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              {municipio && (
+                <button type="button" onClick={() => setMunicipio('')}>Limpiar filtro</button>
+              )}
+            </div>
+          )}
+          <div className="tabla-envoltura">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Padrino</th>
+                  <th className="numero">Asignadas</th>
+                  <th className="numero">Realizadas</th>
+                  <th className="numero">Pendientes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {padrinos.map((padrino) => {
+                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones)
+                  return (
+                    <tr key={padrino.id}>
+                      <td>
+                        <span className="celda-persona">
+                          <Avatar id={padrino.id} nombre={padrino.nombre} tamano={28} />
+                          {padrino.nombre}
+                        </span>
+                      </td>
+                      <td className="numero">{asignadas}</td>
+                      <td className="numero">{realizadas}</td>
+                      <td className="numero">{pendientes}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+// Vista accionable: mismo patrón acordeón-por-padrino que Actividades por
+// padrino en el admin, pero acotada a los proyectos del líder. Las tarjetas
+// son editables (reasignar padrino, cambiar estado) porque acá el líder sí
+// gestiona la focalización de su equipo.
+function TablaFocalizacion({
+  padrinos, padrinosConCarga, focalizacion, asignaciones, municipio, setMunicipio, municipios,
+  padrinoId, setPadrinoId, padrinosParaFiltro, abiertoId, setAbiertoId,
+  onReasignarFocalizacion, onProgramar, onMarcarRealizada, onVolverPendiente, onReasignarAsignacion,
+}) {
+  return (
+    <>
+      <h2>Focalización de tu equipo</h2>
+      {padrinosParaFiltro.length === 0 ? (
         <Vacio>Todavía no hay padrinos con visitas asignadas en tus convenios.</Vacio>
       ) : (
         <>
@@ -128,7 +315,7 @@ export default function LiderPanel() {
             </select>
             <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
               <option value="">Todos los padrinos</option>
-              {padrinos.map((p) => (
+              {padrinosParaFiltro.map((p) => (
                 <option key={p.id} value={String(p.id)}>{p.nombre}</option>
               ))}
             </select>
@@ -152,16 +339,16 @@ export default function LiderPanel() {
               </thead>
               <tbody>
                 {padrinosConCarga.map((padrino) => {
-                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacionFiltrada, asignaciones)
+                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones)
                   const abierto = String(abiertoId) === String(padrino.id)
 
-                  const pendientesFocalizacion = focalizacionFiltrada.filter(
+                  const pendientesFocalizacion = focalizacion.filter(
                     (f) => String(f.padrino_id) === String(padrino.id) && f.estado !== 'realizada'
                   )
-                  const realizadasFocalizacion = focalizacionFiltrada.filter(
+                  const realizadasFocalizacion = focalizacion.filter(
                     (f) => String(f.padrino_id) === String(padrino.id) && f.estado === 'realizada'
                   )
-                  const asignacionesDelPadrino = asignacionesConContexto.filter(
+                  const asignacionesDelPadrino = asignaciones.filter(
                     (a) => String(a.padrino_id) === String(padrino.id)
                   )
 
@@ -189,7 +376,17 @@ export default function LiderPanel() {
                               <ColumnasVisitas
                                 pendientes={pendientesFocalizacion}
                                 realizadas={realizadasFocalizacion}
-                                renderTarjeta={(item) => <TarjetaVisitaFocalizacion key={item.id} item={item} />}
+                                renderTarjeta={(item) => (
+                                  <TarjetaVisitaEditable
+                                    key={item.id}
+                                    item={item}
+                                    padrinos={padrinos}
+                                    onReasignar={onReasignarFocalizacion}
+                                    onProgramar={onProgramar}
+                                    onMarcarRealizada={onMarcarRealizada}
+                                    onVolverPendiente={onVolverPendiente}
+                                  />
+                                )}
                               />
 
                               {asignacionesDelPadrino.length > 0 && (
@@ -204,21 +401,18 @@ export default function LiderPanel() {
                                           <th className="numero">Asignadas</th>
                                           <th className="numero">Realizadas</th>
                                           <th className="numero">Pendientes</th>
+                                          <th>Reasignar</th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {asignacionesDelPadrino.map((item) => {
-                                          const pendiente = (Number(item.cantidad_asignada) || 0) - (Number(item.cantidad_realizada) || 0)
-                                          return (
-                                            <tr key={item.id}>
-                                              <td>{item.convenio_nombre}</td>
-                                              <td>{item.meta_descripcion}</td>
-                                              <td className="numero">{item.cantidad_asignada}</td>
-                                              <td className="numero">{item.cantidad_realizada || 0}</td>
-                                              <td className="numero">{pendiente}</td>
-                                            </tr>
-                                          )
-                                        })}
+                                        {asignacionesDelPadrino.map((item) => (
+                                          <FilaAsignacionCompacta
+                                            key={item.id}
+                                            item={item}
+                                            padrinos={padrinos}
+                                            onReasignar={onReasignarAsignacion}
+                                          />
+                                        ))}
                                       </tbody>
                                     </table>
                                   </div>
@@ -236,7 +430,7 @@ export default function LiderPanel() {
           </div>
         </>
       )}
-    </Envoltorio>
+    </>
   )
 }
 
@@ -251,7 +445,8 @@ function Envoltorio({ nombre, proyectos, children }) {
         </div>
         {nombre && (
           <p className="banda-persona-sub">
-            Solo lectura de {proyectos?.map((p) => p.nombre).join(', ') || 'tus proyectos'}.
+            {proyectos?.length > 1 ? 'Líder de ' : 'Solo lectura de '}
+            {proyectos?.map((p) => p.nombre).join(', ') || 'tus proyectos'}.
           </p>
         )}
       </div>

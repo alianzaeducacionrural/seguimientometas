@@ -1067,6 +1067,38 @@ input::placeholder {
   border-radius: 999px;
 }
 
+/* ---------- Pestañas (panel de líder con varios proyectos) ---------- */
+
+.pestanas {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--borde);
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+}
+
+.pestana {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--tinta-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pestana:hover {
+  color: var(--tinta);
+}
+
+.pestana-activa,
+.pestana-activa:hover {
+  color: var(--aguamarina-oscuro);
+  border-bottom-color: var(--aguamarina);
+}
+
 /* ---------- Avatares (iniciales sobre color de la persona) ---------- */
 
 .avatar {

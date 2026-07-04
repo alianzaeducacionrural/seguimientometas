@@ -136,7 +136,7 @@ El GAS lo lee directamente vía `SpreadsheetApp.openById()` para poblar los sele
 | Rol | Puede ver | Puede editar |
 |---|---|---|
 | Admin / Coordinador | Todo | Todo: crear/editar convenios, metas, aliados; asignar/reasignar; programar y marcar visitas |
-| Líder de proyecto | Solo su(s) proyecto(s): convenios, metas, avance, focalización, carga de padrinos | Nada (solo lectura) |
+| Líder de proyecto | Solo su(s) proyecto(s): convenios, metas, avance, focalización, carga de padrinos | Focalización de sus proyectos: reasignar padrino, programar/marcar realizada/volver a pendiente. El resto (convenios, metas, aliados) solo lectura |
 | Padrino | Solo su propia información: sus focalizaciones y asignaciones, con su estado | Nada (solo lectura) |
 
 ---
@@ -147,7 +147,7 @@ El GAS lo lee directamente vía `SpreadsheetApp.openById()` para poblar los sele
 2. **Carga de padrinos** — por padrino: visitas asignadas y realizadas, desglosadas por proyecto/convenio. Sirve para nivelar el trabajo del equipo.
 3. **Visitas por sede** — por institución/sede: realizadas, programadas, total proyectado (realizadas + programadas) vs. meta, con fecha y padrino asignado. Filtros: proyecto, municipio, padrino.
 4. **Panel admin** — CRUD de convenios/metas/aliados, asignación y reasignación de focalización y visitas sin focalizar, programación de fechas, marcar visitas como realizadas.
-5. **Vista líder** — solo lectura de sus proyectos asociados.
+5. **Vista líder** — sus proyectos asociados (uno o varios) en 3 pestañas: seguimiento a metas, vista de padrinos (lectura) y focalización (acá gestiona: reasignar padrino y cambiar estado de la visita).
 6. **Vista padrino** — solo sus propias asignaciones y su estado.
 
 ---

@@ -403,14 +403,11 @@ function getLiderConvenios(token) {
   const focalizacion = listarFilas(HOJAS.FOCALIZACION).filter(f => metaIds.includes(String(f.meta_id)));
   const asignaciones = listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION).filter(a => metaIds.includes(String(a.meta_id)));
 
-  const padrinoIds = new Set([
-    ...focalizacion.map(f => String(f.padrino_id)),
-    ...asignaciones.map(a => String(a.padrino_id)),
-  ]);
-  // Solo id+nombre de los padrinos involucrados: el líder no necesita ver
-  // correo ni token de nadie más.
+  // Todos los padrinos (no solo los ya involucrados): el líder puede
+  // reasignar visitas a cualquiera, incluyendo a quien todavía no tiene
+  // carga. Solo id+nombre — no necesita ver correo ni token de nadie más.
   const padrinos = listarFilas(HOJAS.USUARIOS)
-    .filter(u => padrinoIds.has(String(u.id)))
+    .filter(u => u.rol === 'padrino')
     .map(u => ({ id: u.id, nombre: u.nombre }));
 
   return {
