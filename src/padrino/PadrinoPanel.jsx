@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { apiGet } from '../utils/api'
-import EstadoFocalizacion from '../components/EstadoFocalizacion'
-import { formatearFecha } from '../utils/formato'
 import { AvisoError, Cargando, Vacio } from '../components/Estado'
 import MarcaLogo from '../components/MarcaLogo'
+import TarjetaVisitaFocalizacion from '../components/TarjetaVisitaFocalizacion'
+import ColumnasVisitas from '../components/ColumnasVisitas'
 import estilos from './PadrinoPanel.module.css'
 
 // Vista pensada para celular (el padrino la revisa en campo): una sola
-// columna, tarjetas grandes, sin tablas anchas. Solo lectura de sus propias
-// focalizaciones/asignaciones — el backend ya filtra por token.
+// columna en pantallas angostas, tarjetas grandes, sin tablas anchas. Solo
+// lectura de sus propias focalizaciones/asignaciones — el backend ya
+// filtra por token.
 export default function PadrinoPanel() {
   const [params] = useSearchParams()
   const token = params.get('token') || ''
@@ -17,6 +18,7 @@ export default function PadrinoPanel() {
   const [datos, setDatos] = useState(null)
   const [error, setError] = useState(token ? null : 'Falta el token en el enlace.')
   const [cargando, setCargando] = useState(Boolean(token))
+  const [municipio, setMunicipio] = useState('')
 
   useEffect(() => {
     if (!token) return
@@ -33,6 +35,11 @@ export default function PadrinoPanel() {
   const totalAsignadas = focalizacion.length + asignaciones.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
   const totalRealizadas = focalizacion.filter((f) => f.estado === 'realizada').length
     + asignaciones.reduce((s, a) => s + (Number(a.cantidad_realizada) || 0), 0)
+
+  const municipios = Array.from(new Set(focalizacion.map((f) => f.municipio).filter(Boolean))).sort()
+  const focalizacionFiltrada = municipio ? focalizacion.filter((f) => f.municipio === municipio) : focalizacion
+  const pendientes = focalizacionFiltrada.filter((f) => f.estado !== 'realizada')
+  const realizadas = focalizacionFiltrada.filter((f) => f.estado === 'realizada')
 
   return (
     <>
@@ -54,16 +61,26 @@ export default function PadrinoPanel() {
       {focalizacion.length === 0 ? (
         <Vacio>No tienes sedes focalizadas asignadas.</Vacio>
       ) : (
-        focalizacion.map((f) => (
-          <div key={f.id} className={estilos.tarjeta}>
-            <h3>{f.sede}</h3>
-            <p>{f.institucion} · {f.municipio}</p>
-            <p>{f.convenio_nombre} — {f.meta_descripcion}</p>
-            <p><EstadoFocalizacion estado={f.estado} /></p>
-            {f.estado === 'programada' && <p>Programada: {formatearFecha(f.fecha_programada)}</p>}
-            {f.estado === 'realizada' && <p>Realizada: {formatearFecha(f.fecha_realizada)}</p>}
-          </div>
-        ))
+        <>
+          {municipios.length > 1 && (
+            <div className="filtros">
+              <select value={municipio} onChange={(e) => setMunicipio(e.target.value)}>
+                <option value="">Todos los municipios</option>
+                {municipios.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              {municipio && (
+                <button type="button" onClick={() => setMunicipio('')}>Limpiar filtro</button>
+              )}
+            </div>
+          )}
+          <ColumnasVisitas
+            pendientes={pendientes}
+            realizadas={realizadas}
+            renderTarjeta={(item) => <TarjetaVisitaFocalizacion key={item.id} item={item} />}
+          />
+        </>
       )}
 
       <h2>Tus visitas sin focalizar</h2>

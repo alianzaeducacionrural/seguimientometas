@@ -1,8 +1,8 @@
-/* Sistema visual "papel y cafetal" — Área de Educación, Comité de Cafeteros
-   de Caldas. Tema claro cálido: fondo crema pergamino, verde cafetal como
-   único color de marca, ámbar de maduración y rojo cereza solo con
-   significado de estado. Profundidad por bordes y cambios de superficie
-   (sin sombras dramáticas). Base de espaciado: 4px. */
+/* Sistema visual "papel y aguamarina" — Área de Educación, Comité de
+   Cafeteros de Caldas. Tema claro cálido: fondo crema pergamino, azul
+   aguamarina como único color de marca, ámbar de maduración y rojo cereza
+   solo con significado de estado. Profundidad por bordes y cambios de
+   superficie (sin sombras dramáticas). Base de espaciado: 4px. */
 
 :root {
   color-scheme: light;
@@ -23,11 +23,11 @@
   --borde: rgba(87, 74, 40, 0.16);
   --borde-fuerte: rgba(87, 74, 40, 0.3);
 
-  /* Marca: verde cafetal + dorado miel (acento sobre verde oscuro) */
-  --cafetal: #1f7a44;
-  --cafetal-oscuro: #175f35;
-  --cafetal-tinte: #e6f2ea;
-  --cafetal-borde: rgba(31, 122, 68, 0.35);
+  /* Marca: azul aguamarina + dorado miel (acento sobre aguamarina oscuro) */
+  --aguamarina: #0d8f97;
+  --aguamarina-oscuro: #0a6870;
+  --aguamarina-tinte: #e1f5f6;
+  --aguamarina-borde: rgba(13, 143, 151, 0.35);
   --dorado: #ffc964;
 
   /* Estado (cosecha): logrado / en proceso / atrasado */
@@ -41,7 +41,7 @@
   /* Controles */
   --control-fondo: #fbfaf6;
   --control-borde: rgba(87, 74, 40, 0.22);
-  --foco: rgba(31, 122, 68, 0.28);
+  --foco: rgba(13, 143, 151, 0.28);
 
   --radio-sm: 7px;
   --radio: 10px;
@@ -88,13 +88,13 @@ h3 {
 }
 
 a {
-  color: var(--cafetal);
+  color: var(--aguamarina);
   font-weight: 600;
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--cafetal-oscuro);
+  color: var(--aguamarina-oscuro);
   text-decoration: underline;
 }
 
@@ -107,7 +107,7 @@ a:hover {
 }
 
 .lateral {
-  background: linear-gradient(172deg, #1f6d40 0%, #124a29 100%);
+  background: linear-gradient(172deg, #12969d 0%, #073e43 100%);
   color: #fff;
   padding: 1.1rem 0.85rem 1.5rem;
   display: flex;
@@ -247,6 +247,11 @@ a:hover {
     gap: 2px;
     overflow-x: auto;
     padding-bottom: 0.25rem;
+    scrollbar-width: none;
+  }
+
+  .lateral nav::-webkit-scrollbar {
+    display: none;
   }
 
   .lateral-nav {
@@ -330,15 +335,15 @@ a:focus-visible {
 }
 
 .btn-primario {
-  background: linear-gradient(180deg, #268a4f, var(--cafetal-oscuro));
-  border-color: var(--cafetal-oscuro);
+  background: linear-gradient(180deg, #17a3aa, var(--aguamarina-oscuro));
+  border-color: var(--aguamarina-oscuro);
   color: #fff;
-  box-shadow: 0 1px 2px rgba(23, 95, 53, 0.3);
+  box-shadow: 0 1px 2px rgba(10, 104, 112, 0.3);
 }
 
 .btn-primario:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--cafetal), #124a29);
-  border-color: #124a29;
+  background: linear-gradient(180deg, var(--aguamarina), #073e43);
+  border-color: #073e43;
   color: #fff;
 }
 
@@ -370,7 +375,7 @@ select {
 
 input:focus,
 select:focus {
-  border-color: var(--cafetal);
+  border-color: var(--aguamarina);
   box-shadow: 0 0 0 3px var(--foco);
   outline: none;
 }
@@ -409,8 +414,8 @@ input::placeholder {
 }
 
 .panel-formulario.editando {
-  border-color: var(--cafetal-borde);
-  background: linear-gradient(0deg, var(--cafetal-tinte) 0%, var(--superficie) 45%);
+  border-color: var(--aguamarina-borde);
+  background: linear-gradient(0deg, var(--aguamarina-tinte) 0%, var(--superficie) 45%);
 }
 
 .panel-formulario-titulo {
@@ -419,7 +424,7 @@ input::placeholder {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--cafetal-oscuro);
+  color: var(--aguamarina-oscuro);
 }
 
 .fila-formulario {
@@ -463,9 +468,9 @@ input::placeholder {
 }
 
 .chip.activo {
-  background: var(--cafetal-tinte);
-  border-color: var(--cafetal-borde);
-  color: var(--cafetal-oscuro);
+  background: var(--aguamarina-tinte);
+  border-color: var(--aguamarina-borde);
+  color: var(--aguamarina-oscuro);
 }
 
 /* ---------- Tablas ---------- */
@@ -510,7 +515,7 @@ input::placeholder {
 }
 
 .tabla tr.fila-editando {
-  background: var(--cafetal-tinte);
+  background: var(--aguamarina-tinte);
 }
 
 .tabla .numero {
@@ -547,16 +552,16 @@ input::placeholder {
 }
 
 .fila-expandible:hover .flecha-acordeon {
-  color: var(--cafetal);
+  color: var(--aguamarina);
 }
 
 .flecha-acordeon.abierta {
   transform: rotate(90deg);
-  color: var(--cafetal);
+  color: var(--aguamarina);
 }
 
 .fila-abierta > td {
-  background: var(--cafetal-tinte);
+  background: var(--aguamarina-tinte);
 }
 
 .fila-panel > td {
@@ -568,8 +573,15 @@ input::placeholder {
 .panel-acordeon {
   padding: 1rem 1.25rem 1.35rem;
   border-top: 1px solid var(--borde-suave);
-  border-bottom: 2px solid var(--cafetal-borde);
+  border-bottom: 2px solid var(--aguamarina-borde);
   animation: aparecer 0.2s ease-out;
+  /* La celda del panel hereda el ancho total de la tabla (que puede
+     desbordar en pantallas angostas); el sticky ancla el contenido al
+     borde visible y el max-width evita que se extienda fuera de vista —
+     la tabla anidada scrollea por su cuenta. */
+  position: sticky;
+  left: 0;
+  max-width: calc(100vw - 2rem);
 }
 
 /* Tabla CRUD anidada dentro de un acordeón */
@@ -588,11 +600,74 @@ input::placeholder {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--cafetal-oscuro);
+  color: var(--aguamarina-oscuro);
 }
 
 .crud-compacta .tabla-envoltura {
   background: var(--superficie);
+}
+
+/* ---------- Columnas de visitas (acordeón de Actividades por padrino) ---------- */
+
+.columnas-visitas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.columna-visitas h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+}
+
+.tarjeta-visita {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.55rem;
+}
+
+.tarjeta-visita h5 {
+  margin: 0 0 0.15rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.tarjeta-visita p {
+  margin: 0.15rem 0;
+  font-size: 0.82rem;
+  color: var(--tinta-2);
+}
+
+.tarjeta-visita-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.tarjeta-visita-acciones button {
+  margin-top: 0;
+  font-size: 0.76rem;
+  padding: 0.28rem 0.65rem;
+}
+
+.btn-reasignar {
+  color: var(--aguamarina-oscuro);
+  background: var(--aguamarina-tinte);
+  border-color: transparent;
+}
+
+.btn-reasignar:hover:not(:disabled) {
+  background: var(--aguamarina);
+  border-color: var(--aguamarina);
+  color: #fff;
 }
 
 /* ---------- Insignias de estado ---------- */
@@ -653,7 +728,7 @@ input::placeholder {
 .kpi {
   background: var(--superficie);
   border: 1px solid var(--borde);
-  border-top: 3px solid var(--cafetal);
+  border-top: 3px solid var(--aguamarina);
   border-radius: var(--radio);
   padding: 0.7rem 1.1rem;
   min-width: 8rem;
@@ -699,7 +774,7 @@ input::placeholder {
   height: 18px;
   border-radius: 50%;
   border: 2.5px solid var(--borde);
-  border-top-color: var(--cafetal);
+  border-top-color: var(--aguamarina);
   animation: girar 0.8s linear infinite;
 }
 
@@ -834,6 +909,19 @@ input::placeholder {
   margin-top: 0.25rem;
 }
 
+/* Variante con una acción "peligrosa" (volver a pendiente) separada a la
+   izquierda del grupo Cancelar/confirmar, para no confundirla con éste. */
+.modal-pie-dividido {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.modal-pie-grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 @keyframes fondoAparece {
   from {
     opacity: 0;
@@ -873,7 +961,7 @@ input::placeholder {
   padding: 1.5rem;
   background:
     radial-gradient(ellipse at 20% -10%, rgba(255, 201, 100, 0.18), transparent 55%),
-    linear-gradient(160deg, #1f6d40 0%, #0f3a22 100%);
+    linear-gradient(160deg, #12969d 0%, #052b2f 100%);
 }
 
 .portada-tarjeta {
@@ -905,7 +993,7 @@ input::placeholder {
 
 .portada-acciones a {
   display: inline-block;
-  background: var(--cafetal);
+  background: var(--aguamarina);
   color: #fff;
   font-weight: 700;
   padding: 0.55rem 1.4rem;
@@ -914,7 +1002,7 @@ input::placeholder {
 }
 
 .portada-acciones a:hover {
-  background: var(--cafetal-oscuro);
+  background: var(--aguamarina-oscuro);
   text-decoration: none;
 }
 
@@ -923,7 +1011,7 @@ input::placeholder {
 .banda-persona {
   background:
     radial-gradient(ellipse at 85% -20%, rgba(255, 201, 100, 0.16), transparent 55%),
-    linear-gradient(168deg, #1f6d40 0%, #124a29 100%);
+    linear-gradient(168deg, #12969d 0%, #073e43 100%);
   color: #fff;
   padding: 1.5rem 1.25rem 1.6rem;
 }
@@ -953,6 +1041,13 @@ input::placeholder {
 .banda-angosta .banda-persona-interior,
 .banda-angosta .banda-persona-sub {
   max-width: 480px;
+}
+
+@media (min-width: 640px) {
+  .banda-angosta .banda-persona-interior,
+  .banda-angosta .banda-persona-sub {
+    max-width: 700px;
+  }
 }
 
 .panel-persona {
@@ -990,6 +1085,120 @@ input::placeholder {
   align-items: center;
   gap: 0.55rem;
   font-weight: 600;
+}
+
+/* ---------- Ajustes móviles finos (además del colapso de la barra) ---------- */
+
+@media (max-width: 640px) {
+  :root {
+    font-size: 15px;
+  }
+
+  .contenido {
+    padding: 1.25rem 0.9rem 3.5rem;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+  }
+
+  /* Título arriba, acciones abajo a lo ancho — evita que el botón primario
+     quede apretado al lado del título. */
+  .barra-vista {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .barra-vista-acciones {
+    padding-top: 0;
+    flex-wrap: wrap;
+  }
+
+  .barra-vista-acciones button {
+    flex: 1 1 auto;
+  }
+
+  .tabla th,
+  .tabla td {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .kpi {
+    min-width: 0;
+    padding: 0.6rem 0.85rem;
+  }
+
+  .kpi strong {
+    font-size: 1.4rem;
+  }
+
+  .filtros select,
+  .filtros input,
+  .filtros button {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  /* Modal tipo hoja inferior: ocupa el ancho, sube desde abajo. */
+  .modal-fondo {
+    padding: 0;
+    place-items: end center;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 94svh;
+    border-radius: var(--radio-lg) var(--radio-lg) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    animation: modalSube 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .modal-pie {
+    flex-wrap: wrap;
+  }
+
+  .modal-pie button {
+    flex: 1 1 auto;
+  }
+
+  .panel-acordeon {
+    padding: 0.75rem 0.6rem 1rem;
+  }
+
+  .crud-compacta-barra {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .banda-persona {
+    padding: 1.1rem 1rem 1.25rem;
+  }
+
+  .portada-tarjeta {
+    padding: 1.75rem 1.25rem;
+  }
+}
+
+@keyframes modalSube {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

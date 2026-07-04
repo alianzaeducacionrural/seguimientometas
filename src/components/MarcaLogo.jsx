@@ -1,10 +1,10 @@
-// Isotipo de la plataforma: hoja de cafeto sobre verde cafetal. SVG inline
-// para no depender de assets externos (GitHub Pages + basename).
-// `invertido` es para fondos verdes (barra lateral, bandas): cuadro blanco
-// con hoja verde.
+// Isotipo de la plataforma: hoja de cafeto sobre azul aguamarina. SVG
+// inline para no depender de assets externos (GitHub Pages + basename).
+// `invertido` es para fondos aguamarina (barra lateral, bandas): cuadro
+// blanco con hoja aguamarina.
 export default function MarcaLogo({ tamano = 34, invertido = false }) {
-  const fondo = invertido ? '#ffffff' : 'var(--cafetal)'
-  const hoja = invertido ? 'var(--cafetal)' : '#ffffff'
+  const fondo = invertido ? '#ffffff' : 'var(--aguamarina)'
+  const hoja = invertido ? 'var(--aguamarina)' : '#ffffff'
   return (
     <span className="marca-logo" aria-hidden="true">
       <svg width={tamano} height={tamano} viewBox="0 0 34 34">

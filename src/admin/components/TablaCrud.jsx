@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { formatearFecha, soloFecha } from '../../utils/formato'
 import { AvisoError } from '../../components/Estado'
 import Modal from '../../components/Modal'
+import Flecha from '../../components/Flecha'
 
 const VACIO_POR_TIPO = { text: '', date: '', number: '', select: '', multiselect: [] }
 
@@ -30,25 +31,6 @@ function serializar(campos, form) {
     datos[campo.clave] = campo.tipo === 'multiselect' ? form[campo.clave].join(',') : form[campo.clave]
   })
   return datos
-}
-
-function Flecha({ abierta }) {
-  return (
-    <svg
-      className={`flecha-acordeon${abierta ? ' abierta' : ''}`}
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  )
 }
 
 // Tabla + modal de alta/edición genéricos para las entidades de catálogo

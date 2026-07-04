@@ -1,5 +1,8 @@
-/* Vista de campo del padrino: una sola columna, tarjetas grandes y cifras
-   legibles al sol en el celular. Hereda los tokens de index.css. */
+/* Vista de campo del padrino: una sola columna angosta en el celular (el
+   uso real, en el campo); en pantallas más anchas (revisar desde un
+   computador) se ensancha lo justo para que Pendientes/Realizadas quepan
+   una al lado de la otra en vez de apiladas. Hereda los tokens de
+   index.css. */
 
 .envoltorio {
   padding: 1.25rem 1rem 3rem;
@@ -7,10 +10,16 @@
   margin: 0 auto;
 }
 
+@media (min-width: 640px) {
+  .envoltorio {
+    max-width: 700px;
+  }
+}
+
 .tarjeta {
   background: var(--superficie);
   border: 1px solid var(--borde);
-  border-left: 4px solid var(--cafetal);
+  border-left: 4px solid var(--aguamarina);
   border-radius: var(--radio);
   padding: 0.9rem 1rem;
   margin-bottom: 0.75rem;
@@ -78,7 +87,7 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  color: var(--cafetal-oscuro);
+  color: var(--aguamarina-oscuro);
 }
 
 .resumen span {

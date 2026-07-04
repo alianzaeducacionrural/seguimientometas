@@ -5,6 +5,7 @@ import SelectorInstitucion from '../components/SelectorInstitucion'
 import FilaFocalizacion from '../components/FilaFocalizacion'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
+import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
@@ -69,13 +70,7 @@ export default function FocalizacionMeta() {
     await focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })
   }
 
-  async function programar(id, fecha) {
-    await focalizacion.editarItem(id, { estado: 'programada', fecha_programada: fecha })
-  }
-
-  async function marcarRealizada(id, fecha) {
-    await focalizacion.editarItem(id, { estado: 'realizada', fecha_realizada: fecha })
-  }
+  const { programar, marcarRealizada, volverAPendiente } = accionesEstadoFocalizacion(focalizacion.editarItem)
 
   return (
     <section className="vista">
@@ -145,6 +140,7 @@ export default function FocalizacionMeta() {
                   onReasignar={reasignar}
                   onProgramar={programar}
                   onMarcarRealizada={marcarRealizada}
+                  onVolverPendiente={volverAPendiente}
                   onEliminar={focalizacion.eliminarItem}
                 />
               ))}

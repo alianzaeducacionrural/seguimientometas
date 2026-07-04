@@ -66,7 +66,7 @@ Same stack and pattern as the sibling project `../Seguimiento a egresados`:
 
 ### Frontend structure
 
-The visual system ("papel y cafetal": warm light theme, coffee-green brand, no dark mode) is documented in `.interface-design/system.md`; all tokens live in `src/index.css` — new UI should use those classes/tokens, not ad-hoc colors.
+The visual system ("papel y aguamarina": warm light theme, aquamarine-blue brand, no dark mode) is documented in `.interface-design/system.md`; all tokens live in `src/index.css` — new UI should use those classes/tokens, not ad-hoc colors.
 
 ```
 src/
@@ -76,15 +76,20 @@ src/
 │   ├── api.js            — GET-only apiGet() (líder/padrino are read-only)
 │   ├── colores.js         — colorPorId() (fixed categorical palette by entity id) + colorAvance() (status palette by %)
 │   ├── formato.js          — soloFecha() (for <input type=date>) / formatearFecha() (dd/mm/aaaa display)
-│   └── avance.js            — ejecutadoDe(meta, focalizacion, asignaciones): shared "ejecutado" calc by tipo
+│   ├── avance.js            — ejecutadoDe(meta, focalizacion, asignaciones): shared "ejecutado" calc by tipo
+│   ├── cargaPadrino.js       — totalesDe(padrinoId, focalizacion, asignaciones) and conContexto(item, metaPorId, convenioPorId), shared by ActividadesPadrino and LiderPanel
+│   └── estadoFocalizacion.js — accionesEstadoFocalizacion(editarItem): the 3 valid estado transitions (see focalizacion below), shared by FocalizacionMeta and ActividadesPadrino
 ├── components/           — shared components
 │   ├── EstadoFocalizacion.jsx  — pendiente/programada/realizada badge (.insignia-* classes from index.css)
 │   ├── Estado.jsx               — Cargando / AvisoError / Vacio shared view states
 │   ├── Modal.jsx                 — shared modal (overlay + Escape/click-outside close); ALL create/edit forms open in modals, not inline
-│   ├── Avatar.jsx                — initials circle colored by colorPorId, used in Usuarios table and CargaPadrinos card headers
+│   ├── Avatar.jsx                — initials circle colored by colorPorId, used in Usuarios table and ActividadesPadrino/LiderPanel
+│   ├── Flecha.jsx                 — shared accordion chevron (rotates + turns aguamarina when open), used by TablaCrud, ActividadesPadrino and LiderPanel
+│   ├── TarjetaVisitaFocalizacion.jsx — read-only focalización card: municipio - institución - sede + estado badge only (no convenio/meta); takes optional `children` for admin's action buttons
+│   ├── ColumnasVisitas.jsx        — the shared two-column Pendientes | Realizadas layout (`.columnas-visitas`, auto-stacks on narrow screens), driven by a `renderTarjeta` callback; used by ActividadesPadrino, LiderPanel and PadrinoPanel
 │   ├── Iconos.jsx                — the app's single stroke-icon set (one per nav section)
 │   ├── MarcaLogo.jsx             — inline-SVG brand mark (coffee leaf; `invertido` for green backgrounds), also mirrored in public/favicon.svg
-│   └── TarjetaResumen.module.css — card+table styles used by ResumenConvenios, CargaPadrinos, LiderPanel; entity color enters via the `--acento` CSS var (left accent stripe), set from JSX with colorPorId()
+│   └── TarjetaResumen.module.css — card+table styles used by ResumenConvenios, LiderPanel; entity color enters via the `--acento` CSS var (left accent stripe), set from JSX with colorPorId()
 ├── admin/                — open, full-access panel (no token)
 │   ├── AdminApp.jsx        — green sidebar shell (brand + iconed nav in Gestión/Reportes sections; collapses to a top bar under 900px) + nested routes; NavLink `to` values are absolute (`/admin/...`), not relative — see comment in the file for why
 │   ├── utils/api.js        — apiGet + crear/editar/eliminar (mutations) against VITE_GAS_URL
@@ -97,7 +102,7 @@ src/
 │   │   ├── ActividadesDeProyecto.jsx — accordion panel under a proyecto row: nested TablaCrud of its actividades
 │   │   ├── MetasDeConvenio.jsx        — accordion panel under a convenio row: nested TablaCrud of its metas (proyecto→actividad cascade) + links to Focalización/Asignaciones
 │   │   ├── SelectorInstitucion.jsx — controlled Municipio→Institución→Sede cascading <select>s
-│   │   ├── FilaFocalizacion.jsx     — one focalización row: reasignar padrino, programar/marcar realizada
+│   │   ├── FilaFocalizacion.jsx     — one focalización row: reasignar padrino; programar, marcar realizada (direct from pendiente too), or volver a pendiente (from programada) via `estadoFocalizacion.js`
 │   │   ├── FilaAsignacion.jsx        — one asignación-sin-focalizar row: editable cantidad_asignada/realizada
 │   │   └── EnlaceMagico.jsx           — "Copiar enlace" button, builds the /lider or /padrino URL from a token
 │   └── views/
@@ -106,13 +111,13 @@ src/
 │       ├── FocalizacionMeta.jsx (/admin/metas/:metaId) — focalización alta/asignación/estado for one meta
 │       ├── AsignacionesMeta.jsx (/admin/metas/:metaId/asignaciones) — per-padrino quotas for one meta
 │       ├── ResumenConvenios.jsx (/admin/resumen)  — Actividad/Meta/Ejecutado/%Avance cards per convenio
-│       ├── CargaPadrinos.jsx (/admin/carga-padrinos) — per-padrino asignadas/realizadas, by convenio
+│       ├── ActividadesPadrino.jsx (/admin/actividades-padrino) — per-padrino asignadas/realizadas/pendientes quick table; each row expands into a two-column accordion (Pendientes | Realizadas) of that padrino's focalización visits, each with "Reasignar" (padrino) and "Cambiar estado" buttons opening their own modal; the estado modal offers Programar/Marcar realizada/Volver a pendiente per the transitions in `estadoFocalizacion.js`, hidden once realizada; a compact table below covers asignaciones_sin_focalizacion quotas if any
 │       ├── VisitasSede.jsx (/admin/visitas-sede)  — all focalización rows + proyecto/municipio/padrino filters
 │       └── Catalogo.jsx        — read-only browser of the Mun/IE/Sedes catalog (KPIs + municipio/institución filters), linked in the nav as "Catálogo IE"
-├── lider/LiderPanel.jsx  — /lider?token=..., read-only convenios+carga scoped to the líder's proyectos
+├── lider/LiderPanel.jsx  — /lider?token=..., read-only convenios+carga scoped to the líder's proyectos. "Carga de padrinos" is the same accordion-table pattern as admin's ActividadesPadrino (quick asignadas/realizadas/pendientes row per padrino, expands into ColumnasVisitas), with municipio+padrino filters, but read-only — TarjetaVisitaFocalizacion renders with no `children` (no Reasignar/Cambiar estado)
 └── padrino/
-    ├── PadrinoPanel.jsx    — /padrino?token=..., read-only own focalización+asignaciones
-    └── PadrinoPanel.module.css — mobile-first single-column cards (this is the one view built for phone use in the field)
+    ├── PadrinoPanel.jsx    — /padrino?token=..., read-only own focalización+asignaciones. "Tus visitas focalizadas" uses ColumnasVisitas (Pendientes | Realizadas) with a municipio filter (shown only if the padrino has visits in more than one); "Tus visitas sin focalizar" stays a flat list (no fixed sede, so no columnas split applies)
+    └── PadrinoPanel.module.css — mobile-first single-column cards (this is the one view built for phone use in the field); `.columnas-visitas` naturally collapses to one column here since its 480px-max container can't fit two 240px-min columns side by side
 ```
 
 `proyectos.lideres_ids` and the `convenio_proyectos` sheet tab exist per the original spec's schema but are **not written by the app**: proyecto↔líder is single-sourced from `usuarios.proyectos_ids` (rol `lider`), and convenio↔proyecto is single-sourced from `convenios.proyectos_ids` (comma list, same pattern) rather than the separate join sheet — both to avoid keeping two denormalized copies of the same relation in sync. Computed/derived values (e.g. the "Líderes" column in the Proyectos view) are filtered client-side from `usuarios`, not stored.
@@ -126,7 +131,7 @@ Entities and relations — full column-level detail is in `PROYECTO_SEGUIMIENTO_
 - `aliados` — funders.
 - `convenios` — one aliado per convenio; `proyectos_ids` (comma list) instead of the `convenio_proyectos` join sheet (see above).
 - `metas` — belong to one convenio and to one `proyecto_id` (picked from the convenio's proyectos in the UI; falls back to all proyectos if the convenio has none marked). `tipo` is `visita_focalizada`, `visita_sin_focalizar`, or `otro_indicador`. Only the first two get per-padrino tracking; `otro_indicador` metas just carry a `cantidad_realizada` aggregate on the meta row itself. The VisitasSede proyecto filter prefers `meta.proyecto_id` and falls back to `convenio.proyectos_ids` for old rows without it.
-- `focalizacion` — one row per pre-assigned school visit under a `visita_focalizada` meta; `padrino_id` is reassignable; `estado` moves `pendiente` → `programada` (sets `fecha_programada`) → `realizada` (sets `fecha_realizada`).
+- `focalizacion` — one row per pre-assigned school visit under a `visita_focalizada` meta; `padrino_id` is reassignable; `estado` moves `pendiente` → `programada` (sets `fecha_programada`) → `realizada` (sets `fecha_realizada`), but `pendiente` can also jump straight to `realizada` (skipping `programada`), and `programada` can revert back to `pendiente` (clears `fecha_programada`) — `realizada` is terminal. These three transitions are centralized in `src/utils/estadoFocalizacion.js` (`accionesEstadoFocalizacion`), shared by FocalizacionMeta and ActividadesPadrino.
 - `asignaciones_sin_focalizacion` — per-padrino visit quotas (`cantidad_asignada`/`cantidad_realizada`) under a `visita_sin_focalizar` meta, no fixed institution.
 - `usuarios` — `rol` is `admin` | `lider` | `padrino`; `proyectos_ids` applies to líderes; `token` is the magic-link key.
 
@@ -144,9 +149,9 @@ Enforcement is server-side (see GAS API contract above), not just hidden UI.
 
 1. Panel admin (`/admin/*`) — CRUD proyectos/aliados/usuarios/convenios/metas, focalización assignment/scheduling, asignaciones sin focalizar.
 2. Avance por convenio (`/admin/resumen`) — Actividad/Meta/Ejecutado/%Avance cards, one per convenio.
-3. Carga de padrinos (`/admin/carga-padrinos`) — visits assigned/realized per padrino, broken down by convenio.
+3. Actividades por padrino (`/admin/actividades-padrino`) — visits assigned/realized/pending per padrino, expandable per row into pending vs. realized visits with inline reassignment.
 4. Visitas por sede (`/admin/visitas-sede`) — every focalización row with proyecto/municipio/padrino filters.
-5. Vista líder (`/lider?token=...`) and vista padrino (`/padrino?token=...`) — read-only, scoped by token.
+5. Vista líder (`/lider?token=...`) and vista padrino (`/padrino?token=...`) — read-only, scoped by token; both split focalización into Pendientes/Realizadas columns (see LiderPanel/PadrinoPanel above).
 
 ## Deferred (not part of initial launch)
 

@@ -6,7 +6,7 @@
 .card {
   background: var(--superficie);
   border: 1px solid var(--borde);
-  border-left: 4px solid var(--acento, var(--cafetal));
+  border-left: 4px solid var(--acento, var(--aguamarina));
   border-radius: var(--radio);
   margin-bottom: 1.25rem;
   overflow: hidden;
@@ -27,7 +27,7 @@
 
 .header {
   padding: 0.8rem 1.1rem;
-  background: color-mix(in srgb, var(--acento, var(--cafetal)) 5%, var(--superficie));
+  background: color-mix(in srgb, var(--acento, var(--aguamarina)) 5%, var(--superficie));
   border-bottom: 1px solid var(--borde-suave);
 }
 
@@ -122,5 +122,20 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0.7rem 0.85rem;
+  }
+
+  .tabla th,
+  .tabla td {
+    padding: 0.45rem 0.85rem;
+  }
+
+  .avanceCelda {
+    min-width: 130px;
   }
 }

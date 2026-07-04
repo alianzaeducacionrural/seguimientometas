@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { apiGet } from '../utils/api'
 import { colorAvance, colorPorId } from '../utils/colores'
 import { ejecutadoDe } from '../utils/avance'
+import { totalesDe, conContexto } from '../utils/cargaPadrino'
 import estilos from '../components/TarjetaResumen.module.css'
 import { AvisoError, Cargando, Vacio } from '../components/Estado'
 import MarcaLogo from '../components/MarcaLogo'
+import Avatar from '../components/Avatar'
+import Flecha from '../components/Flecha'
+import TarjetaVisitaFocalizacion from '../components/TarjetaVisitaFocalizacion'
+import ColumnasVisitas from '../components/ColumnasVisitas'
 
 // Solo lectura: convenios/metas/focalización/carga de los proyectos que
 // lidera, filtrados en el servidor por el token (ver getLiderConvenios en
@@ -18,6 +23,9 @@ export default function LiderPanel() {
   const [datos, setDatos] = useState(null)
   const [error, setError] = useState(token ? null : 'Falta el token en el enlace.')
   const [cargando, setCargando] = useState(Boolean(token))
+  const [abiertoId, setAbiertoId] = useState(null)
+  const [municipio, setMunicipio] = useState('')
+  const [padrinoId, setPadrinoId] = useState('')
 
   useEffect(() => {
     if (!token) return
@@ -32,16 +40,21 @@ export default function LiderPanel() {
 
   const { usuario, convenios, metas, focalizacion, asignaciones, aliados, proyectos, padrinos } = datos
 
-  const cargaPorPadrino = padrinos.map((padrino) => {
-    const items = [
-      ...focalizacion.filter((f) => String(f.padrino_id) === String(padrino.id)).map((f) => ({ asignadas: 1, realizadas: f.estado === 'realizada' ? 1 : 0 })),
-      ...asignaciones.filter((a) => String(a.padrino_id) === String(padrino.id)).map((a) => ({ asignadas: Number(a.cantidad_asignada) || 0, realizadas: Number(a.cantidad_realizada) || 0 })),
-    ]
-    return {
-      padrino,
-      asignadas: items.reduce((s, i) => s + i.asignadas, 0),
-      realizadas: items.reduce((s, i) => s + i.realizadas, 0),
-    }
+  const metaPorId = Object.fromEntries(metas.map((m) => [String(m.id), m]))
+  const convenioPorId = Object.fromEntries(convenios.map((c) => [String(c.id), c]))
+  const focalizacionConContexto = focalizacion.map((f) => conContexto(f, metaPorId, convenioPorId))
+  const asignacionesConContexto = asignaciones.map((a) => conContexto(a, metaPorId, convenioPorId))
+
+  // El filtro de municipio solo aplica a focalización (asignaciones sin
+  // focalizar no tienen sede fija, así que no se ven afectadas por él).
+  const focalizacionFiltrada = municipio
+    ? focalizacionConContexto.filter((f) => f.municipio === municipio)
+    : focalizacionConContexto
+  const municipios = Array.from(new Set(focalizacion.map((f) => f.municipio).filter(Boolean))).sort()
+
+  const padrinosConCarga = padrinos.filter((p) => {
+    if (padrinoId && String(p.id) !== padrinoId) return false
+    return true
   })
 
   return (
@@ -102,29 +115,126 @@ export default function LiderPanel() {
       })}
 
       <h2>Carga de padrinos</h2>
-      {cargaPorPadrino.length === 0 ? (
+      {padrinos.length === 0 ? (
         <Vacio>Todavía no hay padrinos con visitas asignadas en tus convenios.</Vacio>
       ) : (
-        <div className="tabla-envoltura">
-        <table className={estilos.tabla}>
-          <thead>
-            <tr>
-              <th>Padrino</th>
-              <th className={estilos.numero}>Asignadas</th>
-              <th className={estilos.numero}>Realizadas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cargaPorPadrino.map(({ padrino, asignadas, realizadas }) => (
-              <tr key={padrino.id}>
-                <td>{padrino.nombre}</td>
-                <td className={estilos.numero}>{asignadas}</td>
-                <td className={estilos.numero}>{realizadas}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
+        <>
+          <div className="filtros">
+            <select value={municipio} onChange={(e) => setMunicipio(e.target.value)}>
+              <option value="">Todos los municipios</option>
+              {municipios.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
+              <option value="">Todos los padrinos</option>
+              {padrinos.map((p) => (
+                <option key={p.id} value={String(p.id)}>{p.nombre}</option>
+              ))}
+            </select>
+            {(municipio || padrinoId) && (
+              <button type="button" onClick={() => { setMunicipio(''); setPadrinoId('') }}>
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+
+          <div className="tabla-envoltura">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th className="celda-flecha"></th>
+                  <th>Padrino</th>
+                  <th className="numero">Asignadas</th>
+                  <th className="numero">Realizadas</th>
+                  <th className="numero">Pendientes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {padrinosConCarga.map((padrino) => {
+                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacionFiltrada, asignaciones)
+                  const abierto = String(abiertoId) === String(padrino.id)
+
+                  const pendientesFocalizacion = focalizacionFiltrada.filter(
+                    (f) => String(f.padrino_id) === String(padrino.id) && f.estado !== 'realizada'
+                  )
+                  const realizadasFocalizacion = focalizacionFiltrada.filter(
+                    (f) => String(f.padrino_id) === String(padrino.id) && f.estado === 'realizada'
+                  )
+                  const asignacionesDelPadrino = asignacionesConContexto.filter(
+                    (a) => String(a.padrino_id) === String(padrino.id)
+                  )
+
+                  return (
+                    <Fragment key={padrino.id}>
+                      <tr
+                        className={`fila-expandible${abierto ? ' fila-abierta' : ''}`}
+                        onClick={() => setAbiertoId(abierto ? null : padrino.id)}
+                      >
+                        <td className="celda-flecha"><Flecha abierta={abierto} /></td>
+                        <td>
+                          <span className="celda-persona">
+                            <Avatar id={padrino.id} nombre={padrino.nombre} tamano={28} />
+                            {padrino.nombre}
+                          </span>
+                        </td>
+                        <td className="numero">{asignadas}</td>
+                        <td className="numero">{realizadas}</td>
+                        <td className="numero">{pendientes}</td>
+                      </tr>
+                      {abierto && (
+                        <tr className="fila-panel">
+                          <td colSpan={5}>
+                            <div className="panel-acordeon">
+                              <ColumnasVisitas
+                                pendientes={pendientesFocalizacion}
+                                realizadas={realizadasFocalizacion}
+                                renderTarjeta={(item) => <TarjetaVisitaFocalizacion key={item.id} item={item} />}
+                              />
+
+                              {asignacionesDelPadrino.length > 0 && (
+                                <>
+                                  <h4 style={{ marginTop: '1rem' }}>Visitas sin focalizar</h4>
+                                  <div className="tabla-envoltura">
+                                    <table className="tabla">
+                                      <thead>
+                                        <tr>
+                                          <th>Convenio</th>
+                                          <th>Meta</th>
+                                          <th className="numero">Asignadas</th>
+                                          <th className="numero">Realizadas</th>
+                                          <th className="numero">Pendientes</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {asignacionesDelPadrino.map((item) => {
+                                          const pendiente = (Number(item.cantidad_asignada) || 0) - (Number(item.cantidad_realizada) || 0)
+                                          return (
+                                            <tr key={item.id}>
+                                              <td>{item.convenio_nombre}</td>
+                                              <td>{item.meta_descripcion}</td>
+                                              <td className="numero">{item.cantidad_asignada}</td>
+                                              <td className="numero">{item.cantidad_realizada || 0}</td>
+                                              <td className="numero">{pendiente}</td>
+                                            </tr>
+                                          )
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Envoltorio>
   )

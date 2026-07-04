@@ -6,7 +6,7 @@ import Convenios from './views/Convenios'
 import FocalizacionMeta from './views/FocalizacionMeta'
 import AsignacionesMeta from './views/AsignacionesMeta'
 import ResumenConvenios from './views/ResumenConvenios'
-import CargaPadrinos from './views/CargaPadrinos'
+import ActividadesPadrino from './views/ActividadesPadrino'
 import VisitasSede from './views/VisitasSede'
 import Catalogo from './views/Catalogo'
 import MarcaLogo from '../components/MarcaLogo'
@@ -34,7 +34,7 @@ const GESTION = [
 
 const REPORTES = [
   { to: '/admin/resumen', label: 'Avance por convenio', Icono: IconoResumen },
-  { to: '/admin/carga-padrinos', label: 'Carga de padrinos', Icono: IconoCarga },
+  { to: '/admin/actividades-padrino', label: 'Actividades por padrino', Icono: IconoCarga },
   { to: '/admin/visitas-sede', label: 'Visitas por sede', Icono: IconoVisitas },
   { to: '/admin/catalogo', label: 'Catálogo IE', Icono: IconoCatalogo },
 ]
@@ -85,7 +85,7 @@ export default function AdminApp() {
             <Route path="metas/:metaId" element={<FocalizacionMeta />} />
             <Route path="metas/:metaId/asignaciones" element={<AsignacionesMeta />} />
             <Route path="resumen" element={<ResumenConvenios />} />
-            <Route path="carga-padrinos" element={<CargaPadrinos />} />
+            <Route path="actividades-padrino" element={<ActividadesPadrino />} />
             <Route path="visitas-sede" element={<VisitasSede />} />
             <Route path="catalogo" element={<Catalogo />} />
           </Routes>

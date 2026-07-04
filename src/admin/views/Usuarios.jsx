@@ -105,7 +105,6 @@ export default function Usuarios() {
         }
         campos={campos}
         columnasExtra={[
-          { label: 'Token', render: (fila) => fila.token },
           { label: 'Enlace', render: (fila) => <EnlaceMagico rol={fila.rol} token={fila.token} /> },
         ]}
         filas={usuarios.datos}
