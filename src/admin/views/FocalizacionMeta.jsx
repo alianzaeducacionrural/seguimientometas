@@ -30,7 +30,8 @@ export default function FocalizacionMeta() {
   if (!meta) return <p>Meta no encontrada.</p>
 
   const convenio = convenios.datos.find((c) => String(c.id) === String(meta.convenio_id))
-  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino')
+  // Padrinos y líderes: una visita se le puede asignar a cualquiera de los dos.
+  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino' || u.rol === 'lider')
   const items = focalizacion.datos.filter((f) => String(f.meta_id) === metaId)
   const realizadas = items.filter((f) => f.estado === 'realizada').length
 

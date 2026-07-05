@@ -26,7 +26,8 @@ export default function AsignacionesMeta() {
   if (!meta) return <p>Meta no encontrada.</p>
 
   const convenio = convenios.datos.find((c) => String(c.id) === String(meta.convenio_id))
-  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino')
+  // Padrinos y líderes: una cuota se le puede asignar a cualquiera de los dos.
+  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino' || u.rol === 'lider')
   const items = asignaciones.datos.filter((a) => String(a.meta_id) === metaId)
   const padrinosAsignadosIds = new Set(items.map((a) => String(a.padrino_id)))
   const padrinosDisponibles = padrinos.filter((p) => !padrinosAsignadosIds.has(String(p.id)))

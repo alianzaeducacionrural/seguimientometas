@@ -21,7 +21,8 @@ export default function VisitasSede() {
 
   const metaPorId = Object.fromEntries(metas.datos.map((m) => [String(m.id), m]))
   const convenioPorId = Object.fromEntries(convenios.datos.map((c) => [String(c.id), c]))
-  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino')
+  // Padrinos y líderes: una visita se le puede asignar a cualquiera de los dos.
+  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino' || u.rol === 'lider')
 
   const filas = focalizacion.datos.map((f) => {
     const meta = metaPorId[f.meta_id]

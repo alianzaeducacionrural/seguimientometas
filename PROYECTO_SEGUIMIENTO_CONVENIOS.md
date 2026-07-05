@@ -88,7 +88,7 @@ Algunos convenios traen **focalización**: un listado específico de institucion
 | municipio | texto | Referenciado del catálogo Mun/IE/Sedes |
 | institucion | texto | Referenciado del catálogo |
 | sede | texto | Referenciado del catálogo |
-| padrino_id | texto | Padrino asignado (reasignable) |
+| padrino_id | texto | Usuario asignado (reasignable) — un padrino o un líder |
 | estado | texto | `pendiente` / `programada` / `realizada` |
 | fecha_programada | fecha | Se llena cuando pasa a `programada` |
 | fecha_realizada | fecha | Se llena cuando pasa a `realizada` |
@@ -98,7 +98,7 @@ Algunos convenios traen **focalización**: un listado específico de institucion
 |---|---|---|
 | id | texto | Identificador único |
 | meta_id | texto | Meta de tipo `visita_sin_focalizar` a la que pertenece |
-| padrino_id | texto | Padrino asignado |
+| padrino_id | texto | Usuario asignado — un padrino o un líder |
 | cantidad_asignada | número | Visitas asignadas a ese padrino dentro de esta meta |
 | cantidad_realizada | número | Visitas ya marcadas como realizadas |
 
@@ -127,7 +127,7 @@ El GAS lo lee directamente vía `SpreadsheetApp.openById()` para poblar los sele
 - `convenio` 1:N `metas`
 - `meta` (focalizada) 1:N `focalizacion`
 - `meta` (sin focalizar) 1:N `asignaciones_sin_focalizacion`
-- `usuarios` (padrino) 1:N `focalizacion` / `asignaciones_sin_focalizacion`
+- `usuarios` (padrino o líder) 1:N `focalizacion` / `asignaciones_sin_focalizacion`
 
 ---
 
