@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-All 8 phases in `PLAN.md` (Fase 0–7) are implemented and have been verified end-to-end against the real backend (real Sheets maestro, real GAS deployment) with Playwright — including role-scoped access (líder/padrino magic links) and a 3-convenio, mixed-meta-type smoke test. Test data was created and cleaned up after each verification pass; the live Sheet is currently empty of app data, ready for the team's real convenios.
+All 8 phases in `PLAN.md` (Fase 0–7) are implemented and have been verified end-to-end against the real backend (real Sheets maestro, real GAS deployment) with Playwright — including role-scoped access (líder/padrino magic links) and a 3-convenio, mixed-meta-type smoke test. Test data was created and cleaned up after each verification pass.
 
-**The working tree has uncommitted changes.** Per explicit instruction, commits are made only when the user asks — don't `git commit`/`push` proactively, even after finishing a phase. Check `git status` before assuming what's live: GitHub Pages only rebuilds on push to `main`, so the deployed site may lag behind the working tree.
+**The live Sheet now holds the team's real data** (convenios, dozens of metas/focalización rows across many municipios, real usuarios) — the team is actively using the app. There is no separate dev/staging Sheet, so any manual testing against the real backend (`npm run dev` or the deployed site, both hit the same `VITE_GAS_URL`) must create clearly-marked throwaway records and delete them immediately after verifying, never touch or assume the state of existing real rows, and always re-`GET` before/after to confirm nothing else was disturbed.
+
+**The working tree may have uncommitted changes.** Per explicit instruction, commits are made only when the user asks — don't `git commit`/`push` proactively, even after finishing a phase. Check `git status` before assuming what's live: GitHub Pages only rebuilds on push to `main`, so the deployed site may lag behind the working tree.
 
 Read `PROYECTO_SEGUIMIENTO_CONVENIOS.md` for the full data model/roles/panels spec and `PLAN.md` for the phase breakdown — both are still accurate to what's built.
 
@@ -33,7 +35,7 @@ clasp deployments                          # List deployment IDs (the one used b
 
 GitHub Pages redeploys only on push to `main` (no `workflow_dispatch`) — to re-trigger after just changing a repo secret, push an empty commit.
 
-**Testing against the real backend:** there's no separate dev/staging Sheet — `npm run dev` and the deployed site hit the same production Sheets maestro via `VITE_GAS_URL`. When testing CRUD flows manually or with a script, clean up any records you create afterward (`?action=<entidad>` to list, `{accion:'eliminar',...}` POSTs to remove) so the sheet stays empty/real-data-only between sessions.
+**Testing against the real backend:** there's no separate dev/staging Sheet — `npm run dev` and the deployed site hit the same production Sheets maestro via `VITE_GAS_URL`. When testing CRUD flows manually or with a script, clean up any records you create afterward (`?action=<entidad>` to list, `{accion:'eliminar',...}` POSTs to remove) so the sheet stays real-data-only between sessions.
 
 ## Project overview
 
@@ -85,7 +87,7 @@ src/
 │   ├── Modal.jsx                 — shared modal (overlay + Escape/click-outside close); ALL create/edit forms open in modals, not inline
 │   ├── Avatar.jsx                — initials circle colored by colorPorId, used in Usuarios table and ActividadesPadrino/LiderPanel
 │   ├── Flecha.jsx                 — shared accordion chevron (rotates + turns aguamarina when open), used by TablaCrud, ActividadesPadrino and LiderPanel
-│   ├── TarjetaVisitaFocalizacion.jsx — read-only focalización card: municipio - institución - sede + estado badge only (no convenio/meta); takes optional `children` for action buttons
+│   ├── TarjetaVisitaFocalizacion.jsx — read-only focalización card: optional small proyecto label (`item.proyecto_nombre`, from `conContexto`'s 4th `proyectoPorId` arg) + municipio - institución - sede + estado badge (still no convenio/meta); takes optional `children` for action buttons
 │   ├── TarjetaVisitaEditable.jsx    — wraps TarjetaVisitaFocalizacion with Reasignar/Cambiar-estado buttons + their modals; shared by admin's ActividadesPadrino and LiderPanel's Focalización tab (both places the líder or admin actually gets to act)
 │   ├── FilaAsignacionCompacta.jsx    — one asignación-sin-focalizar row (convenio/meta/asignada/realizada/pendiente + reasignar select) for inside a padrino's accordion panel; shared by the same two views
 │   ├── ColumnasVisitas.jsx        — the shared two-column Pendientes | Realizadas layout (`.columnas-visitas`, auto-stacks on narrow screens), driven by a `renderTarjeta` callback; used by ActividadesPadrino, LiderPanel and PadrinoPanel

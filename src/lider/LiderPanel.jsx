@@ -33,6 +33,7 @@ export default function LiderPanel() {
   const [datos, setDatos] = useState(null)
   const [error, setError] = useState(token ? null : 'Falta el token en el enlace.')
   const [cargando, setCargando] = useState(Boolean(token))
+  const [todosProyectos, setTodosProyectos] = useState([])
   const [pestana, setPestana] = useState('metas')
   const [proyectoId, setProyectoId] = useState('')
   const [abiertoId, setAbiertoId] = useState(null)
@@ -48,6 +49,10 @@ export default function LiderPanel() {
   }, [token])
 
   useEffect(() => { cargar() }, [cargar])
+  // El catálogo completo de proyectos (no solo los que lidera) para poder
+  // mostrar el nombre del proyecto de una meta aunque no sea uno de los
+  // suyos (un convenio puede abarcar proyectos que él no lidera).
+  useEffect(() => { apiGet('proyectos').then((r) => setTodosProyectos(r.datos)).catch(() => {}) }, [])
 
   if (cargando) return <Envoltorio><Cargando /></Envoltorio>
   if (error) return <Envoltorio><AvisoError>{error}</AvisoError></Envoltorio>
@@ -83,11 +88,12 @@ export default function LiderPanel() {
 
   const metaPorId = Object.fromEntries(metas.map((m) => [String(m.id), m]))
   const convenioPorId = Object.fromEntries(convenios.map((c) => [String(c.id), c]))
+  const proyectoPorId = Object.fromEntries(todosProyectos.map((p) => [String(p.id), p]))
 
   const focalizacionPorProyecto = (proyectoId ? focalizacion.filter((f) => metaIdsFiltradas.has(String(f.meta_id))) : focalizacion)
-    .map((f) => conContexto(f, metaPorId, convenioPorId))
+    .map((f) => conContexto(f, metaPorId, convenioPorId, proyectoPorId))
   const asignacionesPorProyecto = (proyectoId ? asignaciones.filter((a) => metaIdsFiltradas.has(String(a.meta_id))) : asignaciones)
-    .map((a) => conContexto(a, metaPorId, convenioPorId))
+    .map((a) => conContexto(a, metaPorId, convenioPorId, proyectoPorId))
 
   // El filtro de municipio solo aplica a focalización (asignaciones sin
   // focalizar no tienen sede fija, así que no se ven afectadas por él).

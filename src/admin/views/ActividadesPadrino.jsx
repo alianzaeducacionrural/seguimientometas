@@ -12,13 +12,14 @@ import { totalesDe, conContexto } from '../../utils/cargaPadrino'
 export default function ActividadesPadrino() {
   const usuarios = useEntidad('usuarios')
   const convenios = useEntidad('convenios')
+  const proyectos = useEntidad('proyectos')
   const metas = useEntidad('metas')
   const focalizacion = useEntidad('focalizacion')
   const asignaciones = useEntidad('asignaciones_sin_focalizacion')
 
   const [abiertoId, setAbiertoId] = useState(null)
 
-  const cargando = usuarios.cargando || convenios.cargando || metas.cargando
+  const cargando = usuarios.cargando || convenios.cargando || proyectos.cargando || metas.cargando
     || focalizacion.cargando || asignaciones.cargando
   if (cargando) return <Cargando />
   if (usuarios.error) return <AvisoError>Error: {usuarios.error}</AvisoError>
@@ -36,10 +37,11 @@ export default function ActividadesPadrino() {
 
   const metaPorId = Object.fromEntries(metas.datos.map((m) => [String(m.id), m]))
   const convenioPorId = Object.fromEntries(convenios.datos.map((c) => [String(c.id), c]))
+  const proyectoPorId = Object.fromEntries(proyectos.datos.map((p) => [String(p.id), p]))
   const { programar, marcarRealizada, volverAPendiente } = accionesEstadoFocalizacion(focalizacion.editarItem)
 
-  const focalizacionConContexto = focalizacion.datos.map((f) => conContexto(f, metaPorId, convenioPorId))
-  const asignacionesConContexto = asignaciones.datos.map((a) => conContexto(a, metaPorId, convenioPorId))
+  const focalizacionConContexto = focalizacion.datos.map((f) => conContexto(f, metaPorId, convenioPorId, proyectoPorId))
+  const asignacionesConContexto = asignaciones.datos.map((a) => conContexto(a, metaPorId, convenioPorId, proyectoPorId))
 
   return (
     <section className="vista">

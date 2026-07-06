@@ -16,11 +16,19 @@ export function totalesDe(padrinoId, focalizacion, asignaciones) {
   return { asignadas, realizadas, pendientes: asignadas - realizadas }
 }
 
-// Enriquece una focalización/asignación con el nombre del convenio y la
-// descripción de la meta a la que pertenece, buscando en los mapas ya
-// indexados por id — evita que cada tarjeta tenga que volver a buscarlos.
-export function conContexto(item, metaPorId, convenioPorId) {
+// Enriquece una focalización/asignación con el nombre del convenio, la
+// descripción de la meta y el nombre del proyecto a los que pertenece,
+// buscando en los mapas ya indexados por id — evita que cada tarjeta tenga
+// que volver a buscarlos. `proyectoPorId` es opcional (solo lo necesitan las
+// vistas que muestran el proyecto en la tarjeta).
+export function conContexto(item, metaPorId, convenioPorId, proyectoPorId) {
   const meta = metaPorId[String(item.meta_id)]
   const convenio = meta && convenioPorId[String(meta.convenio_id)]
-  return { ...item, meta_descripcion: meta?.descripcion || '—', convenio_nombre: convenio?.nombre || '—' }
+  const proyecto = proyectoPorId && meta && proyectoPorId[String(meta.proyecto_id)]
+  return {
+    ...item,
+    meta_descripcion: meta?.descripcion || '—',
+    convenio_nombre: convenio?.nombre || '—',
+    proyecto_nombre: proyecto?.nombre || '',
+  }
 }

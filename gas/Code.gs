@@ -440,12 +440,16 @@ function getPadrinoResumen(token) {
   const convenios = listarFilas(HOJAS.CONVENIOS).filter(c => convenioIds.has(String(c.id)));
   const convenioPorId = Object.fromEntries(convenios.map(c => [String(c.id), c]));
 
+  const proyectoPorId = Object.fromEntries(listarFilas(HOJAS.PROYECTOS).map(p => [String(p.id), p]));
+
   function conContexto(item) {
     const meta = metaPorId[String(item.meta_id)];
     const convenio = meta && convenioPorId[String(meta.convenio_id)];
+    const proyecto = meta && proyectoPorId[String(meta.proyecto_id)];
     return Object.assign({}, item, {
       meta_descripcion: meta ? meta.descripcion : '',
       convenio_nombre: convenio ? convenio.nombre : '',
+      proyecto_nombre: proyecto ? proyecto.nombre : '',
     });
   }
 

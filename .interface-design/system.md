@@ -69,16 +69,18 @@ mayúsculas pequeñas 700–800 con tracking +0.04em; cifras con
   versalitas) o con `ColumnasVisitas` (ver abajo). El panel usa
   `position: sticky; left: 0; max-width: calc(100vw - 2rem)` porque su
   celda hereda el ancho total de la tabla (que desborda en móvil).
-- Visitas focalizadas: tarjeta mínima — solo título "Municipio -
-  Institución - Sede" + insignia de estado (`TarjetaVisitaFocalizacion.jsx`,
-  nunca convenio/meta, eso se filtra aparte). Se agrupan en dos columnas
-  Pendientes | Realizadas con `ColumnasVisitas.jsx` (`.columnas-visitas`,
-  grid `auto-fit minmax(240px,1fr)` — se apila solo en pantallas angostas,
-  sin media query). Este par se reutiliza tal cual en Actividades por
-  padrino (admin, con botones Reasignar/Cambiar estado), en el panel de
-  líder (misma tabla-acordeón, solo lectura) y en el panel de padrino (sus
-  propias visitas, solo lectura, con filtro de municipio si tiene más de
-  uno).
+- Visitas focalizadas: tarjeta mínima — proyecto (etiqueta pequeña
+  aguamarina, `.tarjeta-visita-proyecto`, solo si se conoce) + título
+  "Municipio - Institución - Sede" + insignia de estado
+  (`TarjetaVisitaFocalizacion.jsx`, nunca convenio/meta, eso se filtra
+  aparte). Se agrupan en dos columnas Pendientes | Realizadas con
+  `ColumnasVisitas.jsx` (`.columnas-visitas`, grid `auto-fit
+  minmax(240px,1fr)` — se apila solo en pantallas angostas, sin media
+  query). Este par se reutiliza tal cual en Actividades por padrino (admin)
+  y en la pestaña Focalización del panel de líder (ambos con botones
+  Reasignar/Cambiar estado vía `TarjetaVisitaEditable.jsx`), y en el panel
+  de padrino (sus propias visitas, solo lectura, con filtro de municipio si
+  tiene más de uno).
 - Responsive: <900px la barra lateral se vuelve cabecera con nav horizontal;
   <640px además: fuente base 15px, barras de vista apiladas con botones a lo
   ancho, KPIs en grid de 2, filtros al 100%, y los modales se vuelven hoja

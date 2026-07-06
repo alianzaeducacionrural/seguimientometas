@@ -633,6 +633,15 @@ input::placeholder {
   margin-bottom: 0.55rem;
 }
 
+.tarjeta-visita-proyecto {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--aguamarina-oscuro);
+}
+
 .tarjeta-visita h5 {
   margin: 0 0 0.15rem;
   font-size: 0.92rem;
