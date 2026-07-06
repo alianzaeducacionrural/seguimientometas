@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import TablaCrud from './TablaCrud'
 import { AvisoError, Cargando } from '../../components/Estado'
+import { ejecutadoDe } from '../../utils/avance'
 
 const TIPOS_META = [
   { value: 'visita_focalizada', label: 'Visita focalizada' },
@@ -16,8 +17,12 @@ export default function MetasDeConvenio({ convenio }) {
   const proyectos = useEntidad('proyectos')
   const actividades = useEntidad('actividades')
   const metas = useEntidad('metas')
+  const focalizacion = useEntidad('focalizacion')
+  const asignaciones = useEntidad('asignaciones_sin_focalizacion')
 
-  if (proyectos.cargando || actividades.cargando || metas.cargando) return <Cargando />
+  const cargando = proyectos.cargando || actividades.cargando || metas.cargando
+    || focalizacion.cargando || asignaciones.cargando
+  if (cargando) return <Cargando />
   if (metas.error) return <AvisoError>Error: {metas.error}</AvisoError>
 
   const metasDelConvenio = metas.datos.filter((m) => String(m.convenio_id) === String(convenio.id))
@@ -54,12 +59,17 @@ export default function MetasDeConvenio({ convenio }) {
       },
     },
     { clave: 'cantidad_meta', label: 'Cantidad meta', tipo: 'number', requerido: true },
-    { clave: 'tipo', label: 'Tipo', tipo: 'select', requerido: true, opciones: TIPOS_META },
+    { clave: 'tipo', label: 'Tipo', tipo: 'select', requerido: true, opciones: TIPOS_META, ocultarColumna: true },
     {
       clave: 'cantidad_realizada',
       label: 'Cantidad realizada',
       tipo: 'number',
       mostrarSi: (form) => form.tipo === 'otro_indicador',
+      // Para visita_focalizada/visita_sin_focalizar el ejecutado se calcula
+      // de la focalización/asignaciones (igual que en Avance por convenio),
+      // no del campo crudo de la meta, que solo se llena a mano para
+      // otro_indicador.
+      columna: (fila) => ejecutadoDe(fila, focalizacion.datos, asignaciones.datos),
     },
   ]
 

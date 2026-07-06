@@ -41,6 +41,9 @@ function serializar(campos, form) {
 //   panel debajo (actividades de un proyecto, metas de un convenio…).
 // - `compacta`: versión para anidar dentro de un acordeón (título h3, sin
 //   sección de vista propia).
+// - `campo.ocultarColumna`: el campo sigue apareciendo en el formulario de
+//   alta/edición pero no genera columna en la tabla (p.ej. un campo que ya
+//   se refleja en otra columna calculada, o que solo importa al editar).
 export default function TablaCrud({
   titulo,
   descripcion,
@@ -63,7 +66,8 @@ export default function TablaCrud({
   const [abiertaId, setAbiertaId] = useState(null)
 
   const modalAbierto = editandoId !== null
-  const totalColumnas = campos.length + columnasExtra.length + 1 + (panelFila ? 1 : 0)
+  const columnasVisibles = campos.filter((c) => !c.ocultarColumna)
+  const totalColumnas = columnasVisibles.length + columnasExtra.length + 1 + (panelFila ? 1 : 0)
 
   function abrirNuevo() {
     setEditandoId('nuevo')
@@ -151,7 +155,7 @@ export default function TablaCrud({
           <thead>
             <tr>
               {panelFila && <th className="celda-flecha"></th>}
-              {campos.map((c) => <th key={c.clave}>{c.label}</th>)}
+              {columnasVisibles.map((c) => <th key={c.clave}>{c.label}</th>)}
               {columnasExtra.map((c) => <th key={c.label}>{c.label}</th>)}
               <th></th>
             </tr>
@@ -179,7 +183,7 @@ export default function TablaCrud({
                     {panelFila && (
                       <td className="celda-flecha"><Flecha abierta={abierta} /></td>
                     )}
-                    {campos.map((c) => (
+                    {columnasVisibles.map((c) => (
                       <td key={c.clave}>
                         {c.columna ? c.columna(fila) : c.tipo === 'date' ? formatearFecha(fila[c.clave]) : String(fila[c.clave] ?? '')}
                       </td>
