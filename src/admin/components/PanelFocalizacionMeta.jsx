@@ -6,22 +6,39 @@ import Modal from '../../components/Modal'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
-// Gestión de la focalización de una meta: KPIs + "+ Agregar sede" + tabla
-// de sedes con reasignar/cambiar estado. Presentacional (recibe los datos
-// ya filtrados y las mutaciones por props) para poder incrustarse tanto en
-// la ruta dedicada (`FocalizacionMeta.jsx`) como en la pestaña Focalización
-// (`Focalizacion.jsx`), sin duplicar el fetch de datos ni la lógica.
-// `compacta` baja el título de h2 a h3 para cuando va anidada dentro de un
-// acordeón (mismo criterio que TablaCrud/MetasDeConvenio).
+// Gestión de la focalización de una meta: KPIs + "+ Agregar sede" + filtro
+// de municipio/institución (en vivo, sin botón de buscar — las opciones
+// salen de las sedes de esta meta, no del catálogo completo) + tabla de
+// sedes con reasignar/cambiar estado. Presentacional (recibe los datos ya
+// filtrados por convenio/meta y las mutaciones por props) para poder
+// incrustarse tanto en la ruta dedicada (`FocalizacionMeta.jsx`) como en la
+// pestaña Focalización (`Focalizacion.jsx`), sin duplicar el fetch de datos
+// ni la lógica. `compacta` baja el título de h2 a h3 para cuando va anidada
+// dentro de un acordeón (mismo criterio que TablaCrud/MetasDeConvenio).
 export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, compacta = false }) {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [seleccion, setSeleccion] = useState(SELECCION_VACIA)
   const [padrinoId, setPadrinoId] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
+  const [municipioFiltro, setMunicipioFiltro] = useState('')
+  const [institucionFiltro, setInstitucionFiltro] = useState('')
 
   const realizadas = items.filter((f) => f.estado === 'realizada').length
   const Titulo = compacta ? 'h3' : 'h2'
+
+  // Los filtros salen de las sedes que ya tiene esta meta (no del catálogo
+  // completo de ~1300 sedes, que no aplica acá) — institución se acota al
+  // municipio elegido, igual que el selector de alta.
+  const municipios = Array.from(new Set(items.map((i) => i.municipio).filter(Boolean))).sort()
+  const instituciones = Array.from(new Set(
+    items.filter((i) => !municipioFiltro || i.municipio === municipioFiltro).map((i) => i.institucion).filter(Boolean)
+  )).sort()
+  const itemsFiltrados = items.filter((i) => {
+    if (municipioFiltro && i.municipio !== municipioFiltro) return false
+    if (institucionFiltro && i.institucion !== institucionFiltro) return false
+    return true
+  })
 
   function abrirModal() {
     setSeleccion(SELECCION_VACIA)
@@ -75,6 +92,28 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
       {padrinos.length === 0 && <p className="vista-descripcion">No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
       {error && !modalAbierto && <AvisoError>{error}</AvisoError>}
 
+      {items.length > 0 && (
+        <div className="filtros">
+          <select value={municipioFiltro} onChange={(e) => { setMunicipioFiltro(e.target.value); setInstitucionFiltro('') }}>
+            <option value="">Todos los municipios</option>
+            {municipios.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          <select value={institucionFiltro} onChange={(e) => setInstitucionFiltro(e.target.value)}>
+            <option value="">Todas las instituciones</option>
+            {instituciones.map((i) => (
+              <option key={i} value={i}>{i}</option>
+            ))}
+          </select>
+          {(municipioFiltro || institucionFiltro) && (
+            <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro('') }}>
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      )}
+
       <Modal abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} titulo="Agregar sede a focalizar">
         <form onSubmit={agregar} className="formulario-modal">
           <SelectorInstitucion {...seleccion} onChange={setSeleccion} />
@@ -99,6 +138,8 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
 
       {items.length === 0 ? (
         <Vacio>Todavía no hay sedes focalizadas en esta meta — agrega la primera con el formulario de arriba.</Vacio>
+      ) : itemsFiltrados.length === 0 ? (
+        <Vacio>Ninguna sede coincide con el filtro.</Vacio>
       ) : (
         <div className="tabla-envoltura">
           <table className="tabla">
@@ -114,7 +155,7 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {itemsFiltrados.map((item) => (
                 <FilaFocalizacion
                   key={item.id}
                   item={item}
