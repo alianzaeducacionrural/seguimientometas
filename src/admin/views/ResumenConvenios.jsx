@@ -68,6 +68,7 @@ export default function ResumenConvenios() {
                     <th className={estilos.numero}>Meta</th>
                     <th className={estilos.numero}>Ejecutado</th>
                     <th>% Avance</th>
+                    <th className={estilos.numero}>Faltante</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -77,6 +78,7 @@ export default function ResumenConvenios() {
                     const pct = metaNum > 0 ? Math.round((ejecutado / metaNum) * 100) : 0
                     const pctBarra = Math.min(pct, 100)
                     const proyectoMeta = proyectos.datos.find((p) => String(p.id) === String(meta.proyecto_id))
+                    const faltante = Math.max(metaNum - ejecutado, 0)
                     return (
                       <tr key={meta.id}>
                         <td>{proyectoMeta?.nombre || '—'}</td>
@@ -94,6 +96,7 @@ export default function ResumenConvenios() {
                             <span className={estilos.pct}>{pct}%</span>
                           </div>
                         </td>
+                        <td className={estilos.numero}>{faltante}</td>
                       </tr>
                     )
                   })}

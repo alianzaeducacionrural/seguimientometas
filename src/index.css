@@ -634,6 +634,23 @@ input::placeholder {
   flex: none;
 }
 
+.encabezado-plegable {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.encabezado-plegable h4 {
+  margin: 0;
+}
+
+.encabezado-plegable:hover .flecha-acordeon {
+  color: var(--aguamarina);
+}
+
 /* Tabla CRUD anidada dentro de un acordeón */
 .crud-compacta-barra {
   display: flex;

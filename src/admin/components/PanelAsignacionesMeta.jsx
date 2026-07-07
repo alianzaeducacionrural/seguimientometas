@@ -3,6 +3,7 @@ import FilaAsignacion from './FilaAsignacion'
 import SelectorInstitucion from './SelectorInstitucion'
 import { AvisoError, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
+import Flecha from '../../components/Flecha'
 import { formatearFecha, hoy } from '../../utils/formato'
 import { coincideBusqueda } from '../../utils/texto'
 
@@ -30,6 +31,9 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
   const [cantidad, setCantidad] = useState('')
   const [guardandoAsignar, setGuardandoAsignar] = useState(false)
   const [errorAsignar, setErrorAsignar] = useState(null)
+
+  const [visitasAbiertas, setVisitasAbiertas] = useState(true)
+  const [asignacionAbierta, setAsignacionAbierta] = useState(false)
 
   const [modalVisitaAbierto, setModalVisitaAbierto] = useState(false)
   const [seleccion, setSeleccion] = useState(SELECCION_VACIA)
@@ -148,6 +152,7 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
       <div className="kpis">
         <div className="kpi"><strong>{metaNum}</strong><span>Meta</span></div>
         <div className="kpi"><strong>{visitasRealizadas.length}</strong><span>Realizado</span></div>
+        <div className="kpi"><strong>{totalAsignado}</strong><span>Asignado a padrinos</span></div>
       </div>
 
       {padrinos.length === 0 && <p className="vista-descripcion">No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
@@ -209,101 +214,113 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
         </form>
       </Modal>
 
-      <h4>Visitas realizadas</h4>
-      {visitasRealizadas.length === 0 ? (
-        <Vacio>Todavía no hay visitas registradas en esta meta — registra la primera con el botón de arriba.</Vacio>
-      ) : (
-        <>
-          <div className="filtros">
-            <select value={municipioFiltro} onChange={(e) => { setMunicipioFiltro(e.target.value); setInstitucionFiltro('') }}>
-              <option value="">Todos los municipios</option>
-              {municipiosVisitas.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-            <select value={institucionFiltro} onChange={(e) => setInstitucionFiltro(e.target.value)}>
-              <option value="">Todas las instituciones</option>
-              {institucionesVisitas.map((i) => (
-                <option key={i} value={i}>{i}</option>
-              ))}
-            </select>
-            <input
-              type="search"
-              placeholder="Buscar municipio, institución, sede o padrino…"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
-            {(municipioFiltro || institucionFiltro || busqueda) && (
-              <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro(''); setBusqueda('') }}>
-                Limpiar filtros
-              </button>
-            )}
-          </div>
+      <div className="encabezado-plegable" onClick={() => setVisitasAbiertas((v) => !v)}>
+        <Flecha abierta={visitasAbiertas} />
+        <h4>Visitas realizadas ({visitasRealizadas.length})</h4>
+      </div>
+      {visitasAbiertas && (
+        visitasRealizadas.length === 0 ? (
+          <Vacio>Todavía no hay visitas registradas en esta meta — registra la primera con el botón de arriba.</Vacio>
+        ) : (
+          <>
+            <div className="filtros">
+              <select value={municipioFiltro} onChange={(e) => { setMunicipioFiltro(e.target.value); setInstitucionFiltro('') }}>
+                <option value="">Todos los municipios</option>
+                {municipiosVisitas.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select value={institucionFiltro} onChange={(e) => setInstitucionFiltro(e.target.value)}>
+                <option value="">Todas las instituciones</option>
+                {institucionesVisitas.map((i) => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+              <input
+                type="search"
+                placeholder="Buscar municipio, institución, sede o padrino…"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+              {(municipioFiltro || institucionFiltro || busqueda) && (
+                <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro(''); setBusqueda('') }}>
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
 
-          {visitasFiltradas.length === 0 ? (
-            <Vacio>Ninguna visita coincide con el filtro.</Vacio>
+            {visitasFiltradas.length === 0 ? (
+              <Vacio>Ninguna visita coincide con el filtro.</Vacio>
+            ) : (
+              <div className="tabla-envoltura">
+                <table className="tabla">
+                  <thead>
+                    <tr>
+                      <th>Municipio</th>
+                      <th>Institución</th>
+                      <th>Sede</th>
+                      <th>Padrino</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visitasFiltradas.map((v) => (
+                      <tr key={v.id}>
+                        <td>{v.municipio}</td>
+                        <td>{v.institucion}</td>
+                        <td>{v.sede}</td>
+                        <td>{nombreDe(v.padrino_id)}</td>
+                        <td>{formatearFecha(v.fecha_realizada)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )
+      )}
+
+      <div className="encabezado-plegable" onClick={() => setAsignacionAbierta((v) => !v)}>
+        <Flecha abierta={asignacionAbierta} />
+        <h4>Asignación por padrino ({asignaciones.length})</h4>
+      </div>
+      {asignacionAbierta && (
+        <>
+          {!cuadra && asignaciones.length > 0 && (
+            <p className="vista-descripcion">
+              <span className="insignia insignia-programada">Lo asignado no cuadra con la meta</span>
+            </p>
+          )}
+          {asignaciones.length === 0 ? (
+            <Vacio>Todavía no hay cuotas asignadas a esta meta.</Vacio>
           ) : (
             <div className="tabla-envoltura">
               <table className="tabla">
                 <thead>
                   <tr>
-                    <th>Municipio</th>
-                    <th>Institución</th>
-                    <th>Sede</th>
                     <th>Padrino</th>
-                    <th>Fecha</th>
+                    <th>Cantidad asignada</th>
+                    <th>Cantidad realizada</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {visitasFiltradas.map((v) => (
-                    <tr key={v.id}>
-                      <td>{v.municipio}</td>
-                      <td>{v.institucion}</td>
-                      <td>{v.sede}</td>
-                      <td>{nombreDe(v.padrino_id)}</td>
-                      <td>{formatearFecha(v.fecha_realizada)}</td>
-                    </tr>
+                  {asignaciones.map((item) => (
+                    <FilaAsignacion
+                      key={item.id}
+                      item={item}
+                      padrinoNombre={nombreDe(item.padrino_id)}
+                      realizada={visitasRealizadas.filter((v) => String(v.padrino_id) === String(item.padrino_id)).length}
+                      onGuardar={onGuardarAsignacion}
+                      onEliminar={onEliminarAsignacion}
+                    />
                   ))}
                 </tbody>
               </table>
             </div>
           )}
         </>
-      )}
-
-      <h4 style={{ marginTop: '1.5rem' }}>Asignación por padrino</h4>
-      {!cuadra && asignaciones.length > 0 && (
-        <p className="vista-descripcion">
-          <span className="insignia insignia-programada">Lo asignado no cuadra con la meta</span>
-        </p>
-      )}
-      {asignaciones.length === 0 ? (
-        <Vacio>Todavía no hay cuotas asignadas a esta meta.</Vacio>
-      ) : (
-        <div className="tabla-envoltura">
-          <table className="tabla">
-            <thead>
-              <tr>
-                <th>Padrino</th>
-                <th>Cantidad asignada</th>
-                <th>Cantidad realizada</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {asignaciones.map((item) => (
-                <FilaAsignacion
-                  key={item.id}
-                  item={item}
-                  padrinoNombre={nombreDe(item.padrino_id)}
-                  realizada={visitasRealizadas.filter((v) => String(v.padrino_id) === String(item.padrino_id)).length}
-                  onGuardar={onGuardarAsignacion}
-                  onEliminar={onEliminarAsignacion}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
     </div>
   )
