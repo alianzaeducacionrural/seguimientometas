@@ -84,7 +84,7 @@ Algunos convenios traen **focalización**: un listado específico de institucion
 | Columna | Tipo | Descripción |
 |---|---|---|
 | id | texto | Identificador único |
-| meta_id | texto | Meta a la que pertenece — de tipo `visita_focalizada` (sede preasignada) o `visita_sin_focalizar` (visita registrada después de ocurrida, ver "Registrar visita") |
+| meta_id | texto | Meta a la que pertenece — de tipo `visita_focalizada` (sede preasignada) o `visita_sin_focalizar` (visita agregada desde "+ Agregar visita", ver nota abajo) |
 | municipio | texto | Referenciado del catálogo Mun/IE/Sedes |
 | institucion | texto | Referenciado del catálogo |
 | sede | texto | Referenciado del catálogo |
@@ -93,7 +93,7 @@ Algunos convenios traen **focalización**: un listado específico de institucion
 | fecha_programada | fecha | Se llena cuando pasa a `programada` |
 | fecha_realizada | fecha | Se llena cuando pasa a `realizada` |
 
-> Una visita bajo una meta `visita_sin_focalizar` se registra directo en estado `realizada` (con "Registrar visita": se elige municipio/institución/sede/padrino/fecha) — no pasa por `pendiente`/`programada` porque se carga después de haber ocurrido. Al vivir en la misma hoja que las focalizadas, cuenta sola en el ejecutado de su meta y aparece en Visitas por sede sin pasos extra.
+> Una visita bajo una meta `visita_sin_focalizar` pasa por el mismo ciclo de estados que una focalizada — "+ Agregar visita" deja elegir si ya se realizó, si se programa para una fecha, o si se deja pendiente sin fecha todavía, y desde ahí se reasigna/programa/marca realizada/vuelve a pendiente igual que cualquier fila de `focalizacion`. Al vivir en la misma hoja que las focalizadas, cuenta sola en el ejecutado de su meta (una vez `realizada`) y aparece en Visitas por sede sin pasos extra, sin importar su estado.
 
 ### `asignaciones_sin_focalizacion`
 | Columna | Tipo | Descripción |

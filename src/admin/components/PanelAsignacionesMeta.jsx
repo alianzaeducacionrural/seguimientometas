@@ -1,33 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
 import FilaAsignacion from './FilaAsignacion'
+import FilaFocalizacion from './FilaFocalizacion'
 import SelectorInstitucion from './SelectorInstitucion'
 import { AvisoError, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
 import Flecha from '../../components/Flecha'
-import { formatearFecha, hoy } from '../../utils/formato'
+import { hoy } from '../../utils/formato'
 import { coincideBusqueda } from '../../utils/texto'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
 // Gestión de una meta "visita sin focalizar", con dos secciones siempre
 // visibles para poder hacer seguimiento desde ambos lados a la vez:
-// "Visitas realizadas" (trazabilidad — municipio/institución/sede/padrino/
-// fecha de cada visita registrada con "+ Registrar visita", que crea una
-// fila normal de `focalizacion` en estado "realizada" y por eso también
-// cuenta en el ejecutado de la meta y aparece en Visitas por sede; con
-// filtros de municipio/institución + una búsqueda libre que filtra
+// "Visitas" (trazabilidad — cada visita agregada con "+ Agregar visita"
+// puede quedar pendiente, programada o ya realizada, mismo ciclo de
+// estados que visita_focalizada — ver FilaFocalizacion — así que se
+// reasigna/programa/marca realizada/vuelve a pendiente exactamente igual;
+// filtros de municipio/institución/estado + una búsqueda libre que filtra
 // mientras se escribe, sin botón) y "Asignación por padrino" (la cuota de
 // cada uno vía "+ Asignar padrino" + la FilaAsignacion table). Al elegir un
 // padrino en el modal de asignar, si ya tiene visitas realizadas sin cuota,
 // se precarga esa cantidad como punto de partida (editable). Además, la
 // cuota de cada padrino se mantiene sincronizada sola con lo realizado
-// (ver el useEffect de reconciliación más abajo): cubre tanto visitas
-// nuevas como las que ya estaban registradas antes de esta función existir.
+// (ver el useEffect de reconciliación más abajo, que solo cuenta visitas ya
+// realizadas — una pendiente/programada no cuenta todavía): cubre tanto
+// visitas nuevas como las que ya estaban registradas antes de esta función
+// existir.
 // Presentacional, igual que PanelFocalizacionMeta: recibe datos y
 // mutaciones por props para poder incrustarse en la pestaña Focalización.
-export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, padrinos, onAsignarPadrino, onGuardarAsignacion, onEliminarAsignacion, onRegistrarVisita, compacta = false }) {
+export default function PanelAsignacionesMeta({
+  meta, asignaciones, visitas, padrinos,
+  onAsignarPadrino, onGuardarAsignacion, onEliminarAsignacion,
+  onRegistrarVisita, onReasignarVisita, onProgramarVisita, onMarcarRealizadaVisita, onVolverPendienteVisita, onEliminarVisita,
+  compacta = false,
+}) {
   const [municipioFiltro, setMunicipioFiltro] = useState('')
   const [institucionFiltro, setInstitucionFiltro] = useState('')
+  const [estadoFiltro, setEstadoFiltro] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false)
   const [padrinoId, setPadrinoId] = useState('')
@@ -41,6 +50,7 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
   const [modalVisitaAbierto, setModalVisitaAbierto] = useState(false)
   const [seleccion, setSeleccion] = useState(SELECCION_VACIA)
   const [padrinoVisitaId, setPadrinoVisitaId] = useState('')
+  const [estadoNuevaVisita, setEstadoNuevaVisita] = useState('realizada')
   const [fechaVisita, setFechaVisita] = useState(hoy())
   const [guardandoVisita, setGuardandoVisita] = useState(false)
   const [errorVisita, setErrorVisita] = useState(null)
@@ -49,6 +59,7 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
   const padrinosDisponibles = padrinos.filter((p) => !padrinosAsignadosIds.has(String(p.id)))
 
   const visitasRealizadas = visitas.filter((v) => v.estado === 'realizada')
+  const visitasProgramadas = visitas.filter((v) => v.estado === 'programada')
   const totalAsignado = asignaciones.reduce((sum, a) => sum + (Number(a.cantidad_asignada) || 0), 0)
   const metaNum = Number(meta.cantidad_meta) || 0
   const Titulo = compacta ? 'h3' : 'h2'
@@ -57,16 +68,18 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
     return padrinos.find((p) => String(p.id) === String(padrinoId2))?.nombre || '—'
   }
 
-  // Filtros de la pestaña "Visitas realizadas": municipio/institución salen
-  // de las visitas ya registradas en esta meta, más una búsqueda libre que
-  // filtra mientras se escribe (municipio, institución, sede o padrino).
-  const municipiosVisitas = Array.from(new Set(visitasRealizadas.map((v) => v.municipio).filter(Boolean))).sort()
+  // Filtros de la sección "Visitas": municipio/institución salen de las
+  // visitas ya registradas en esta meta (en cualquier estado), más un
+  // filtro de estado (para "ver solo las programadas", por ejemplo) y una
+  // búsqueda libre que filtra mientras se escribe.
+  const municipiosVisitas = Array.from(new Set(visitas.map((v) => v.municipio).filter(Boolean))).sort()
   const institucionesVisitas = Array.from(new Set(
-    visitasRealizadas.filter((v) => !municipioFiltro || v.municipio === municipioFiltro).map((v) => v.institucion).filter(Boolean)
+    visitas.filter((v) => !municipioFiltro || v.municipio === municipioFiltro).map((v) => v.institucion).filter(Boolean)
   )).sort()
-  const visitasFiltradas = visitasRealizadas.filter((v) => {
+  const visitasFiltradas = visitas.filter((v) => {
     if (municipioFiltro && v.municipio !== municipioFiltro) return false
     if (institucionFiltro && v.institucion !== institucionFiltro) return false
+    if (estadoFiltro && v.estado !== estadoFiltro) return false
     return coincideBusqueda(busqueda, v.municipio, v.institucion, v.sede, nombreDe(v.padrino_id))
   })
 
@@ -106,13 +119,16 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
   function abrirModalVisita() {
     setSeleccion(SELECCION_VACIA)
     setPadrinoVisitaId('')
+    setEstadoNuevaVisita('realizada')
     setFechaVisita(hoy())
     setErrorVisita(null)
     setModalVisitaAbierto(true)
   }
 
   // Conteo de visitas realizadas por padrino, para reconciliar la cuota
-  // (abajo) y para "Cantidad realizada" en la tabla de asignaciones.
+  // (abajo) y para "Cantidad realizada" en la tabla de asignaciones. Solo
+  // cuenta las ya realizadas — una pendiente o programada todavía no debe
+  // subir la cuota sola.
   const conteoPorPadrino = {}
   visitasRealizadas.forEach((v) => {
     const id = String(v.padrino_id || '')
@@ -165,15 +181,17 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
     setGuardandoVisita(true)
     setErrorVisita(null)
     try {
-      await onRegistrarVisita({
+      const datos = {
         meta_id: meta.id,
         municipio: seleccion.municipio,
         institucion: seleccion.institucion,
         sede: seleccion.sede,
         padrino_id: padrinoVisitaId,
-        estado: 'realizada',
-        fecha_realizada: fechaVisita,
-      })
+        estado: estadoNuevaVisita,
+      }
+      if (estadoNuevaVisita === 'programada') datos.fecha_programada = fechaVisita
+      if (estadoNuevaVisita === 'realizada') datos.fecha_realizada = fechaVisita
+      await onRegistrarVisita(datos)
       setModalVisitaAbierto(false)
     } catch (err) {
       setErrorVisita(err.message)
@@ -189,7 +207,7 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
           <Titulo>Visitas sin focalizar: {meta.descripcion}</Titulo>
         </div>
         <div className="barra-vista-acciones">
-          <button type="button" className="btn-primario" onClick={abrirModalVisita}>+ Registrar visita</button>
+          <button type="button" className="btn-primario" onClick={abrirModalVisita}>+ Agregar visita</button>
           <button type="button" onClick={abrirModalAsignar} disabled={padrinosDisponibles.length === 0}>
             + Asignar padrino
           </button>
@@ -199,12 +217,13 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
       <div className="kpis">
         <div className="kpi"><strong>{metaNum}</strong><span>Meta</span></div>
         <div className="kpi"><strong>{visitasRealizadas.length}</strong><span>Realizado</span></div>
+        <div className="kpi"><strong>{visitasProgramadas.length}</strong><span>Programadas</span></div>
         <div className="kpi"><strong>{totalAsignado}</strong><span>Asignado a padrinos</span></div>
       </div>
 
       {padrinos.length === 0 && <p className="vista-descripcion">No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
 
-      <Modal abierto={modalVisitaAbierto} onCerrar={() => setModalVisitaAbierto(false)} titulo="Registrar visita">
+      <Modal abierto={modalVisitaAbierto} onCerrar={() => setModalVisitaAbierto(false)} titulo="Agregar visita">
         <form onSubmit={registrarVisita} className="formulario-modal">
           <SelectorInstitucion {...seleccion} onChange={setSeleccion} />
           <label className="campo">
@@ -217,14 +236,24 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
             </select>
           </label>
           <label className="campo">
-            <span>Fecha de la visita</span>
-            <input type="date" required value={fechaVisita} onChange={(e) => setFechaVisita(e.target.value)} />
+            <span>Estado</span>
+            <select value={estadoNuevaVisita} onChange={(e) => setEstadoNuevaVisita(e.target.value)}>
+              <option value="realizada">Ya se realizó</option>
+              <option value="programada">Programar para una fecha</option>
+              <option value="pendiente">Dejar pendiente (sin fecha todavía)</option>
+            </select>
           </label>
+          {estadoNuevaVisita !== 'pendiente' && (
+            <label className="campo">
+              <span>{estadoNuevaVisita === 'programada' ? 'Fecha programada' : 'Fecha de la visita'}</span>
+              <input type="date" required value={fechaVisita} onChange={(e) => setFechaVisita(e.target.value)} />
+            </label>
+          )}
           {errorVisita && <AvisoError>{errorVisita}</AvisoError>}
           <div className="modal-pie">
             <button type="button" onClick={() => setModalVisitaAbierto(false)}>Cancelar</button>
             <button type="submit" className="btn-primario" disabled={guardandoVisita}>
-              {guardandoVisita ? 'Guardando…' : 'Registrar'}
+              {guardandoVisita ? 'Guardando…' : 'Agregar'}
             </button>
           </div>
         </form>
@@ -263,11 +292,11 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
 
       <div className="encabezado-plegable" onClick={() => setVisitasAbiertas((v) => !v)}>
         <Flecha abierta={visitasAbiertas} />
-        <h4>Visitas realizadas ({visitasRealizadas.length})</h4>
+        <h4>Visitas ({visitas.length})</h4>
       </div>
       {visitasAbiertas && (
-        visitasRealizadas.length === 0 ? (
-          <Vacio>Todavía no hay visitas registradas en esta meta — registra la primera con el botón de arriba.</Vacio>
+        visitas.length === 0 ? (
+          <Vacio>Todavía no hay visitas registradas en esta meta — agrega la primera con el botón de arriba.</Vacio>
         ) : (
           <>
             <div className="filtros">
@@ -283,14 +312,20 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
                   <option key={i} value={i}>{i}</option>
                 ))}
               </select>
+              <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}>
+                <option value="">Todos los estados</option>
+                <option value="pendiente">Solo pendientes</option>
+                <option value="programada">Solo programadas</option>
+                <option value="realizada">Solo realizadas</option>
+              </select>
               <input
                 type="search"
                 placeholder="Buscar municipio, institución, sede o padrino…"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />
-              {(municipioFiltro || institucionFiltro || busqueda) && (
-                <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro(''); setBusqueda('') }}>
+              {(municipioFiltro || institucionFiltro || estadoFiltro || busqueda) && (
+                <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro(''); setEstadoFiltro(''); setBusqueda('') }}>
                   Limpiar filtros
                 </button>
               )}
@@ -307,18 +342,23 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
                       <th>Institución</th>
                       <th>Sede</th>
                       <th>Padrino</th>
-                      <th>Fecha</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {visitasFiltradas.map((v) => (
-                      <tr key={v.id}>
-                        <td>{v.municipio}</td>
-                        <td>{v.institucion}</td>
-                        <td>{v.sede}</td>
-                        <td>{nombreDe(v.padrino_id)}</td>
-                        <td>{formatearFecha(v.fecha_realizada)}</td>
-                      </tr>
+                      <FilaFocalizacion
+                        key={v.id}
+                        item={v}
+                        padrinos={padrinos}
+                        onReasignar={onReasignarVisita}
+                        onProgramar={onProgramarVisita}
+                        onMarcarRealizada={onMarcarRealizadaVisita}
+                        onVolverPendiente={onVolverPendienteVisita}
+                        onEliminar={onEliminarVisita}
+                      />
                     ))}
                   </tbody>
                 </table>

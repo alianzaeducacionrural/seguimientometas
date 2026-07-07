@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import PanelAsignacionesMeta from '../components/PanelAsignacionesMeta'
+import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import { AvisoError, Cargando } from '../../components/Estado'
 
 // Ruta dedicada (/admin/metas/:metaId/asignaciones): hace el fetch y delega
@@ -26,6 +27,7 @@ export default function AsignacionesMeta() {
   const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino' || u.rol === 'lider')
   const items = asignaciones.datos.filter((a) => String(a.meta_id) === metaId)
   const visitas = focalizacion.datos.filter((f) => String(f.meta_id) === metaId)
+  const { programar, marcarRealizada, volverAPendiente } = accionesEstadoFocalizacion(focalizacion.editarItem)
 
   return (
     <section className="vista">
@@ -39,6 +41,11 @@ export default function AsignacionesMeta() {
         onGuardarAsignacion={asignaciones.editarItem}
         onEliminarAsignacion={asignaciones.eliminarItem}
         onRegistrarVisita={focalizacion.crearItem}
+        onReasignarVisita={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
+        onProgramarVisita={programar}
+        onMarcarRealizadaVisita={marcarRealizada}
+        onVolverPendienteVisita={volverAPendiente}
+        onEliminarVisita={focalizacion.eliminarItem}
       />
     </section>
   )

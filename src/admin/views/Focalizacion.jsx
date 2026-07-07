@@ -210,6 +210,11 @@ export default function Focalizacion() {
                                                                 onGuardarAsignacion={asignaciones.editarItem}
                                                                 onEliminarAsignacion={asignaciones.eliminarItem}
                                                                 onRegistrarVisita={focalizacion.crearItem}
+                                                                onReasignarVisita={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
+                                                                onProgramarVisita={programar}
+                                                                onMarcarRealizadaVisita={marcarRealizada}
+                                                                onVolverPendienteVisita={volverAPendiente}
+                                                                onEliminarVisita={focalizacion.eliminarItem}
                                                               />
                                                             )}
                                                           </div>

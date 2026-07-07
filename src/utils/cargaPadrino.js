@@ -4,15 +4,15 @@
 // - meta visita_focalizada: sede preasignada de antemano → cuenta siempre
 //   en "asignadas" (haya pasado o no), y en "realizadas" si su estado es
 //   "realizada".
-// - meta visita_sin_focalizar: fila creada por "Registrar visita" (nace
-//   directo en estado "realizada" porque ya ocurrió) → siempre cuenta en
-//   "realizadas", y también en "asignadas" — cada visita ya hecha prueba
-//   que como mínimo había esa "asignación", así que la cuota
-//   (cantidad_asignada) y lo ya registrado no se suman aparte: se toma el
-//   mayor de los dos. Si no fuera así, un padrino que ya hizo más visitas
-//   de las que tenía en cuota mostraría "pendientes" negativos a nivel
-//   agregado que no cuadran con las tarjetas (que solo pueden mostrar
-//   pendientes de visita_focalizada, la única con estado "pendiente" real).
+// - meta visita_sin_focalizar: fila creada desde "+ Registrar visita", que
+//   puede quedar pendiente, programada o ya realizada (mismo ciclo de
+//   estados que visita_focalizada) → cuenta en "asignadas" siempre (aunque
+//   todavía no se haya hecho, ya está asignada a ese padrino) y en
+//   "realizadas" solo si su estado es "realizada". La cuota
+//   (cantidad_asignada) y lo ya registrado no se suman aparte para
+//   "asignadas": se toma el mayor de los dos, para que un padrino que ya
+//   tiene más visitas registradas que su cuota nunca muestre "pendientes"
+//   negativos a nivel agregado.
 // Pendientes = asignadas - realizadas, igual que en cualquier otro resumen
 // de avance de la app. `metaPorId` es requerido para distinguir el tipo.
 export function totalesDe(padrinoId, focalizacion, asignaciones, metaPorId) {
@@ -24,7 +24,7 @@ export function totalesDe(padrinoId, focalizacion, asignaciones, metaPorId) {
   const cuotaSinFocalizar = asigDelPadrino.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
   const asignadas = focPreasignada.length + Math.max(cuotaSinFocalizar, focSinFocalizarRegistrada.length)
   const realizadas = focPreasignada.filter((f) => f.estado === 'realizada').length
-    + focSinFocalizarRegistrada.length
+    + focSinFocalizarRegistrada.filter((f) => f.estado === 'realizada').length
 
   return { asignadas, realizadas, pendientes: asignadas - realizadas }
 }
