@@ -414,11 +414,27 @@ function getLiderConvenios(token) {
 
   const misProyectosIds = idsDeLista(usuario.proyectos_ids);
 
-  const convenios = listarFilas(HOJAS.CONVENIOS).filter(c =>
+  // Cada hoja se lee UNA sola vez (listarFilas hace un round-trip real a
+  // Sheets, sin caché) y de ahí se derivan tanto la vista scoped a los
+  // proyectos del líder como sus visitas propias — leer dos veces la misma
+  // hoja (antes se hacía para focalizacion/asignaciones/metas/convenios)
+  // duplicaba el costo de esta llamada y la hacía notablemente más lenta
+  // (¬4s), al punto de sentirse "trabada" tras reasignar/cambiar estado.
+  const todosProyectosFilas = listarFilas(HOJAS.PROYECTOS);
+  const todosConvenios = listarFilas(HOJAS.CONVENIOS);
+  const todasMetas = listarFilas(HOJAS.METAS);
+  const todaFocalizacion = listarFilas(HOJAS.FOCALIZACION);
+  const todasAsignaciones = listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION);
+  const todosUsuarios = listarFilas(HOJAS.USUARIOS);
+
+  const proyectoPorId = Object.fromEntries(todosProyectosFilas.map(p => [String(p.id), p]));
+  const convenioPorId = Object.fromEntries(todosConvenios.map(c => [String(c.id), c]));
+  const metaPorId = Object.fromEntries(todasMetas.map(m => [String(m.id), m]));
+
+  const convenios = todosConvenios.filter(c =>
     idsDeLista(c.proyectos_ids).some(pid => misProyectosIds.includes(pid))
   );
   const convenioIds = convenios.map(c => String(c.id));
-  const convenioPorId = Object.fromEntries(convenios.map(c => [String(c.id), c]));
 
   // Un convenio puede abarcar varios proyectos (p.ej. "Modelos Educativos
   // Flexibles" toca los 6-7 a la vez) — quedarse solo con el filtro a nivel
@@ -426,7 +442,7 @@ function getLiderConvenios(token) {
   // este líder no lidera. Cada meta se filtra por su propio proyecto_id;
   // las metas viejas sin proyecto_id caen al criterio del convenio (mismo
   // fallback que VisitasSede/Focalizacion en el admin).
-  const metas = listarFilas(HOJAS.METAS).filter(m => {
+  const metas = todasMetas.filter(m => {
     if (!convenioIds.includes(String(m.convenio_id))) return false;
     const proyectoMeta = String(m.proyecto_id || '').trim();
     if (proyectoMeta) return misProyectosIds.includes(proyectoMeta);
@@ -435,37 +451,30 @@ function getLiderConvenios(token) {
   });
   const metaIds = metas.map(m => String(m.id));
 
-  const focalizacion = listarFilas(HOJAS.FOCALIZACION).filter(f => metaIds.includes(String(f.meta_id)));
-  const asignaciones = listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION).filter(a => metaIds.includes(String(a.meta_id)));
+  const focalizacion = todaFocalizacion.filter(f => metaIds.includes(String(f.meta_id)));
+  const asignaciones = todasAsignaciones.filter(a => metaIds.includes(String(a.meta_id)));
 
   // Todos los padrinos Y líderes (no solo los ya involucrados): una visita
   // se le puede asignar a cualquier padrino o a cualquier líder, incluyendo
   // a quien todavía no tiene carga. Solo id+nombre — no necesita ver correo
   // ni token de nadie más.
-  const padrinos = listarFilas(HOJAS.USUARIOS)
+  const padrinos = todosUsuarios
     .filter(u => u.rol === 'padrino' || u.rol === 'lider')
     .map(u => ({ id: u.id, nombre: u.nombre }));
 
   // Las visitas propias del líder (como visitante asignado, no como quien
   // gestiona a su equipo) pueden estar en CUALQUIER proyecto del sistema —
   // un líder es asignable igual que un padrino en cualquier convenio, no
-  // solo en los que lidera — así que se buscan aparte, sin acotar por
-  // misProyectosIds, con el mismo enriquecimiento (conContexto) que
-  // getPadrinoResumen, para que "Tus visitas focalizadas" se vea igual que
-  // el panel de padrino.
-  const misVisitas = listarFilas(HOJAS.FOCALIZACION).filter(f => String(f.padrino_id) === String(usuario.id));
-  const misAsignaciones = listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION).filter(a => String(a.padrino_id) === String(usuario.id));
-  const metaIdsPropias = new Set([...misVisitas.map(f => String(f.meta_id)), ...misAsignaciones.map(a => String(a.meta_id))]);
-  const metasPropias = listarFilas(HOJAS.METAS).filter(m => metaIdsPropias.has(String(m.id)));
-  const metaPropiaPorId = Object.fromEntries(metasPropias.map(m => [String(m.id), m]));
-  const convenioIdsPropios = new Set(metasPropias.map(m => String(m.convenio_id)));
-  const conveniosPropios = listarFilas(HOJAS.CONVENIOS).filter(c => convenioIdsPropios.has(String(c.id)));
-  const convenioPropioPorId = Object.fromEntries(conveniosPropios.map(c => [String(c.id), c]));
-  const proyectoPorId = Object.fromEntries(listarFilas(HOJAS.PROYECTOS).map(p => [String(p.id), p]));
+  // solo en los que lidera — así que se filtran aparte de la misma lectura
+  // completa (sin acotar por misProyectosIds), con el mismo enriquecimiento
+  // (conContexto) que getPadrinoResumen, para que "Tus visitas focalizadas"
+  // se vea igual que el panel de padrino.
+  const misVisitas = todaFocalizacion.filter(f => String(f.padrino_id) === String(usuario.id));
+  const misAsignaciones = todasAsignaciones.filter(a => String(a.padrino_id) === String(usuario.id));
 
   function conContextoPropio(item) {
-    const meta = metaPropiaPorId[String(item.meta_id)];
-    const convenio = meta && convenioPropioPorId[String(meta.convenio_id)];
+    const meta = metaPorId[String(item.meta_id)];
+    const convenio = meta && convenioPorId[String(meta.convenio_id)];
     const proyecto = meta && proyectoPorId[String(meta.proyecto_id)];
     return Object.assign({}, item, {
       meta_descripcion: meta ? meta.descripcion : '',
@@ -479,7 +488,7 @@ function getLiderConvenios(token) {
   return {
     ok: true,
     usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol },
-    proyectos: listarFilas(HOJAS.PROYECTOS).filter(p => misProyectosIds.includes(String(p.id))),
+    proyectos: todosProyectosFilas.filter(p => misProyectosIds.includes(String(p.id))),
     aliados: listarFilas(HOJAS.ALIADOS),
     convenios,
     metas,
