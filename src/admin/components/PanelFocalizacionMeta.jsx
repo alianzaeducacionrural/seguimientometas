@@ -3,18 +3,21 @@ import SelectorInstitucion from './SelectorInstitucion'
 import FilaFocalizacion from './FilaFocalizacion'
 import { AvisoError, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
+import { coincideBusqueda } from '../../utils/texto'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
-// Gestión de la focalización de una meta: KPIs + "+ Agregar sede" + filtro
-// de municipio/institución (en vivo, sin botón de buscar — las opciones
-// salen de las sedes de esta meta, no del catálogo completo) + tabla de
-// sedes con reasignar/cambiar estado. Presentacional (recibe los datos ya
-// filtrados por convenio/meta y las mutaciones por props) para poder
-// incrustarse tanto en la ruta dedicada (`FocalizacionMeta.jsx`) como en la
-// pestaña Focalización (`Focalizacion.jsx`), sin duplicar el fetch de datos
-// ni la lógica. `compacta` baja el título de h2 a h3 para cuando va anidada
-// dentro de un acordeón (mismo criterio que TablaCrud/MetasDeConvenio).
+// Gestión de la focalización de una meta: KPIs + "+ Agregar sede" + filtros
+// de municipio/institución + una caja de búsqueda libre (municipio,
+// institución, sede o padrino) que filtra mientras se escribe, sin botón —
+// todo en vivo, las opciones salen de las sedes de esta meta, no del
+// catálogo completo. Tabla de sedes con reasignar/cambiar estado.
+// Presentacional (recibe los datos ya filtrados por convenio/meta y las
+// mutaciones por props) para poder incrustarse tanto en la ruta dedicada
+// (`FocalizacionMeta.jsx`) como en la pestaña Focalización
+// (`Focalizacion.jsx`), sin duplicar el fetch de datos ni la lógica.
+// `compacta` baja el título de h2 a h3 para cuando va anidada dentro de un
+// acordeón (mismo criterio que TablaCrud/MetasDeConvenio).
 export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, compacta = false }) {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [seleccion, setSeleccion] = useState(SELECCION_VACIA)
@@ -23,9 +26,14 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
   const [error, setError] = useState(null)
   const [municipioFiltro, setMunicipioFiltro] = useState('')
   const [institucionFiltro, setInstitucionFiltro] = useState('')
+  const [busqueda, setBusqueda] = useState('')
 
   const realizadas = items.filter((f) => f.estado === 'realizada').length
   const Titulo = compacta ? 'h3' : 'h2'
+
+  function nombreDe(padrinoId2) {
+    return padrinos.find((p) => String(p.id) === String(padrinoId2))?.nombre || ''
+  }
 
   // Los filtros salen de las sedes que ya tiene esta meta (no del catálogo
   // completo de ~1300 sedes, que no aplica acá) — institución se acota al
@@ -37,7 +45,7 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
   const itemsFiltrados = items.filter((i) => {
     if (municipioFiltro && i.municipio !== municipioFiltro) return false
     if (institucionFiltro && i.institucion !== institucionFiltro) return false
-    return true
+    return coincideBusqueda(busqueda, i.municipio, i.institucion, i.sede, nombreDe(i.padrino_id))
   })
 
   function abrirModal() {
@@ -106,8 +114,14 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
               <option key={i} value={i}>{i}</option>
             ))}
           </select>
-          {(municipioFiltro || institucionFiltro) && (
-            <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro('') }}>
+          <input
+            type="search"
+            placeholder="Buscar municipio, institución, sede o padrino…"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          {(municipioFiltro || institucionFiltro || busqueda) && (
+            <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro(''); setBusqueda('') }}>
               Limpiar filtros
             </button>
           )}

@@ -8,6 +8,7 @@ import FilaAsignacionCompacta from '../../components/FilaAsignacionCompacta'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import { totalesDe, conContexto } from '../../utils/cargaPadrino'
+import { ordenarPorProyecto } from '../../utils/proyectos'
 
 // Encabezado clicable: alterna la columna de orden (o invierte la
 // dirección si ya era la activa) y muestra una flecha en la que está activa.
@@ -93,12 +94,12 @@ export default function ActividadesPadrino() {
             {filasOrdenadas.map(({ padrino, asignadas, realizadas, pendientes }) => {
               const abierto = String(abiertoId) === String(padrino.id)
 
-              const pendientesFocalizacion = focalizacionConContexto.filter(
+              const pendientesFocalizacion = ordenarPorProyecto(focalizacionConContexto.filter(
                 (f) => String(f.padrino_id) === String(padrino.id) && f.estado !== 'realizada'
-              )
-              const realizadasFocalizacion = focalizacionConContexto.filter(
+              ), proyectos.datos)
+              const realizadasFocalizacion = ordenarPorProyecto(focalizacionConContexto.filter(
                 (f) => String(f.padrino_id) === String(padrino.id) && f.estado === 'realizada'
-              )
+              ), proyectos.datos)
               const asignacionesDelPadrino = asignacionesConContexto.filter(
                 (a) => String(a.padrino_id) === String(padrino.id)
               )

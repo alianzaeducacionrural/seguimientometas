@@ -5,12 +5,14 @@
 //   en "asignadas" (haya pasado o no), y en "realizadas" si su estado es
 //   "realizada".
 // - meta visita_sin_focalizar: fila creada por "Registrar visita" (nace
-//   directo en estado "realizada", nunca fue "asignada" de antemano) → no
-//   suma en "asignadas" (eso ya lo aporta la cuota de la asignación), solo
-//   en "realizadas".
-// Las asignaciones sin focalizar aportan su cantidad_asignada (la cuota)
-// a "asignadas"; su cantidad_realizada ya no se usa (el realizado real se
-// cuenta desde `focalizacion`, ver ejecutadoDe en avance.js).
+//   directo en estado "realizada" porque ya ocurrió) → siempre cuenta en
+//   "realizadas", y también en "asignadas" — cada visita ya hecha prueba
+//   que como mínimo había esa "asignación", así que la cuota
+//   (cantidad_asignada) y lo ya registrado no se suman aparte: se toma el
+//   mayor de los dos. Si no fuera así, un padrino que ya hizo más visitas
+//   de las que tenía en cuota mostraría "pendientes" negativos a nivel
+//   agregado que no cuadran con las tarjetas (que solo pueden mostrar
+//   pendientes de visita_focalizada, la única con estado "pendiente" real).
 // Pendientes = asignadas - realizadas, igual que en cualquier otro resumen
 // de avance de la app. `metaPorId` es requerido para distinguir el tipo.
 export function totalesDe(padrinoId, focalizacion, asignaciones, metaPorId) {
@@ -19,8 +21,8 @@ export function totalesDe(padrinoId, focalizacion, asignaciones, metaPorId) {
   const focSinFocalizarRegistrada = focDelPadrino.filter((f) => metaPorId?.[String(f.meta_id)]?.tipo === 'visita_sin_focalizar')
   const asigDelPadrino = asignaciones.filter((a) => String(a.padrino_id) === String(padrinoId))
 
-  const asignadas = focPreasignada.length
-    + asigDelPadrino.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
+  const cuotaSinFocalizar = asigDelPadrino.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
+  const asignadas = focPreasignada.length + Math.max(cuotaSinFocalizar, focSinFocalizarRegistrada.length)
   const realizadas = focPreasignada.filter((f) => f.estado === 'realizada').length
     + focSinFocalizarRegistrada.length
 
@@ -41,5 +43,6 @@ export function conContexto(item, metaPorId, convenioPorId, proyectoPorId) {
     meta_descripcion: meta?.descripcion || '—',
     convenio_nombre: convenio?.nombre || '—',
     proyecto_nombre: proyecto?.nombre || '',
+    proyecto_id: meta?.proyecto_id || '',
   }
 }

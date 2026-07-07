@@ -5,7 +5,7 @@ import { colorAvance, colorPorId } from '../utils/colores'
 import { ejecutadoDe } from '../utils/avance'
 import { totalesDe, conContexto } from '../utils/cargaPadrino'
 import { accionesEstadoFocalizacion } from '../utils/estadoFocalizacion'
-import { idsDeLista } from '../utils/proyectos'
+import { idsDeLista, ordenarPorProyecto } from '../utils/proyectos'
 import estilos from '../components/TarjetaResumen.module.css'
 import { AvisoError, Cargando, Vacio } from '../components/Estado'
 import MarcaLogo from '../components/MarcaLogo'
@@ -162,6 +162,7 @@ export default function LiderPanel() {
           focalizacion={focalizacionFiltrada}
           asignaciones={asignacionesPorProyecto}
           metaPorId={metaPorId}
+          todosProyectos={todosProyectos}
           municipio={municipio}
           setMunicipio={setMunicipio}
           municipios={municipios}
@@ -307,7 +308,7 @@ function VistaPadrinos({ padrinos, focalizacion, asignaciones, metaPorId, munici
 // son editables (reasignar padrino, cambiar estado) porque acá el líder sí
 // gestiona la focalización de su equipo.
 function TablaFocalizacion({
-  padrinos, padrinosConCarga, focalizacion, asignaciones, metaPorId, municipio, setMunicipio, municipios,
+  padrinos, padrinosConCarga, focalizacion, asignaciones, metaPorId, todosProyectos, municipio, setMunicipio, municipios,
   padrinoId, setPadrinoId, padrinosParaFiltro, abiertoId, setAbiertoId,
   onReasignarFocalizacion, onProgramar, onMarcarRealizada, onVolverPendiente, onReasignarAsignacion,
 }) {
@@ -354,12 +355,12 @@ function TablaFocalizacion({
                   const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones, metaPorId)
                   const abierto = String(abiertoId) === String(padrino.id)
 
-                  const pendientesFocalizacion = focalizacion.filter(
+                  const pendientesFocalizacion = ordenarPorProyecto(focalizacion.filter(
                     (f) => String(f.padrino_id) === String(padrino.id) && f.estado !== 'realizada'
-                  )
-                  const realizadasFocalizacion = focalizacion.filter(
+                  ), todosProyectos)
+                  const realizadasFocalizacion = ordenarPorProyecto(focalizacion.filter(
                     (f) => String(f.padrino_id) === String(padrino.id) && f.estado === 'realizada'
-                  )
+                  ), todosProyectos)
                   const asignacionesDelPadrino = asignaciones.filter(
                     (a) => String(a.padrino_id) === String(padrino.id)
                   )

@@ -6,6 +6,9 @@ import PanelAsignacionesMeta from '../components/PanelAsignacionesMeta'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import { idsDeLista } from '../../utils/proyectos'
+import { ejecutadoDe } from '../../utils/avance'
+import { colorAvance, colorPorId } from '../../utils/colores'
+import estilos from '../../components/TarjetaResumen.module.css'
 
 // Gestiona toda la focalización (sedes preasignadas y visitas sin
 // focalizar) sin tener que entrar a Convenios: filtro por proyecto arriba,
@@ -122,100 +125,109 @@ export default function Focalizacion() {
                       <tr className="fila-panel">
                         <td colSpan={3}>
                           <div className="panel-acordeon">
-                            <table className="tabla">
-                              <thead>
-                                <tr>
-                                  <th className="celda-flecha"></th>
-                                  <th>Proyecto</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {proyectosDelConvenioActual.map(({ proyecto, metas: metasDelProyecto }) => {
-                                  const proyectoEstaAbierto = proyectoAbierto === proyecto.id
+                            <div className="lista-proyectos">
+                              {proyectosDelConvenioActual.map(({ proyecto, metas: metasDelProyecto }) => {
+                                const proyectoEstaAbierto = proyectoAbierto === proyecto.id
 
-                                  return (
-                                    <Fragment key={proyecto.id}>
-                                      <tr
-                                        className={`fila-expandible${proyectoEstaAbierto ? ' fila-abierta' : ''}`}
-                                        onClick={() => abrirProyecto(proyecto.id)}
-                                      >
-                                        <td className="celda-flecha"><Flecha abierta={proyectoEstaAbierto} /></td>
-                                        <td>{proyecto.nombre}</td>
-                                      </tr>
-                                      {proyectoEstaAbierto && (
-                                        <tr className="fila-panel">
-                                          <td colSpan={2}>
-                                            <div className="panel-acordeon">
-                                              <table className="tabla">
-                                                <thead>
-                                                  <tr>
-                                                    <th className="celda-flecha"></th>
-                                                    <th>Actividad</th>
-                                                    <th className="numero">Meta</th>
-                                                  </tr>
-                                                </thead>
-                                                <tbody>
-                                                  {metasDelProyecto.map((meta) => {
-                                                    const metaEstaAbierta = metaAbierta === meta.id
+                                return (
+                                  <div key={proyecto.id}>
+                                    <div
+                                      className={`fila-proyecto${proyectoEstaAbierto ? ' abierta' : ''}`}
+                                      style={{ '--acento': colorPorId(proyecto.id) }}
+                                      onClick={() => abrirProyecto(proyecto.id)}
+                                    >
+                                      <Flecha abierta={proyectoEstaAbierto} />
+                                      {proyecto.nombre}
+                                    </div>
+                                    {proyectoEstaAbierto && (
+                                      <div className="panel-acordeon">
+                                        <div className="tabla-envoltura">
+                                          <table className="tabla">
+                                            <thead>
+                                              <tr>
+                                                <th className="celda-flecha"></th>
+                                                <th>Actividad</th>
+                                                <th className="numero">Meta</th>
+                                                <th>Avance</th>
+                                                <th className="numero">Faltante</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {metasDelProyecto.map((meta) => {
+                                                const metaEstaAbierta = metaAbierta === meta.id
+                                                const metaNum = Number(meta.cantidad_meta) || 0
+                                                const ejecutado = ejecutadoDe(meta, focalizacion.datos, [])
+                                                const pct = metaNum > 0 ? Math.round((ejecutado / metaNum) * 100) : 0
+                                                const faltante = Math.max(metaNum - ejecutado, 0)
 
-                                                    return (
-                                                      <Fragment key={meta.id}>
-                                                        <tr
-                                                          className={`fila-expandible${metaEstaAbierta ? ' fila-abierta' : ''}`}
-                                                          onClick={() => setMetaAbierta((actual) => (actual === meta.id ? null : meta.id))}
-                                                        >
-                                                          <td className="celda-flecha"><Flecha abierta={metaEstaAbierta} /></td>
-                                                          <td>{meta.descripcion}</td>
-                                                          <td className="numero">{meta.cantidad_meta}</td>
-                                                        </tr>
-                                                        {metaEstaAbierta && (
-                                                          <tr className="fila-panel">
-                                                            <td colSpan={3}>
-                                                              <div className="panel-acordeon">
-                                                                {meta.tipo === 'visita_focalizada' ? (
-                                                                  <PanelFocalizacionMeta
-                                                                    compacta
-                                                                    meta={meta}
-                                                                    items={focalizacion.datos.filter((f) => String(f.meta_id) === String(meta.id))}
-                                                                    padrinos={padrinos}
-                                                                    onCrear={focalizacion.crearItem}
-                                                                    onReasignar={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
-                                                                    onProgramar={programar}
-                                                                    onMarcarRealizada={marcarRealizada}
-                                                                    onVolverPendiente={volverAPendiente}
-                                                                    onEliminar={focalizacion.eliminarItem}
-                                                                  />
-                                                                ) : (
-                                                                  <PanelAsignacionesMeta
-                                                                    compacta
-                                                                    meta={meta}
-                                                                    asignaciones={asignaciones.datos.filter((a) => String(a.meta_id) === String(meta.id))}
-                                                                    visitas={focalizacion.datos.filter((f) => String(f.meta_id) === String(meta.id))}
-                                                                    padrinos={padrinos}
-                                                                    onAsignarPadrino={asignaciones.crearItem}
-                                                                    onGuardarAsignacion={asignaciones.editarItem}
-                                                                    onEliminarAsignacion={asignaciones.eliminarItem}
-                                                                    onRegistrarVisita={focalizacion.crearItem}
-                                                                  />
-                                                                )}
-                                                              </div>
-                                                            </td>
-                                                          </tr>
-                                                        )}
-                                                      </Fragment>
-                                                    )
-                                                  })}
-                                                </tbody>
-                                              </table>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      )}
-                                    </Fragment>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
+                                                return (
+                                                  <Fragment key={meta.id}>
+                                                    <tr
+                                                      className={`fila-expandible${metaEstaAbierta ? ' fila-abierta' : ''}`}
+                                                      onClick={() => setMetaAbierta((actual) => (actual === meta.id ? null : meta.id))}
+                                                    >
+                                                      <td className="celda-flecha"><Flecha abierta={metaEstaAbierta} /></td>
+                                                      <td>{meta.descripcion}</td>
+                                                      <td className="numero">{metaNum}</td>
+                                                      <td>
+                                                        <div className={estilos.avanceCelda}>
+                                                          <div className={estilos.track}>
+                                                            <div
+                                                              className={estilos.fill}
+                                                              style={{ width: `${Math.min(pct, 100)}%`, background: colorAvance(pct) }}
+                                                            />
+                                                          </div>
+                                                          <span className={estilos.pct}>{ejecutado} · {pct}%</span>
+                                                        </div>
+                                                      </td>
+                                                      <td className="numero">{faltante}</td>
+                                                    </tr>
+                                                    {metaEstaAbierta && (
+                                                      <tr className="fila-panel">
+                                                        <td colSpan={5}>
+                                                          <div className="panel-acordeon">
+                                                            {meta.tipo === 'visita_focalizada' ? (
+                                                              <PanelFocalizacionMeta
+                                                                compacta
+                                                                meta={meta}
+                                                                items={focalizacion.datos.filter((f) => String(f.meta_id) === String(meta.id))}
+                                                                padrinos={padrinos}
+                                                                onCrear={focalizacion.crearItem}
+                                                                onReasignar={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
+                                                                onProgramar={programar}
+                                                                onMarcarRealizada={marcarRealizada}
+                                                                onVolverPendiente={volverAPendiente}
+                                                                onEliminar={focalizacion.eliminarItem}
+                                                              />
+                                                            ) : (
+                                                              <PanelAsignacionesMeta
+                                                                compacta
+                                                                meta={meta}
+                                                                asignaciones={asignaciones.datos.filter((a) => String(a.meta_id) === String(meta.id))}
+                                                                visitas={focalizacion.datos.filter((f) => String(f.meta_id) === String(meta.id))}
+                                                                padrinos={padrinos}
+                                                                onAsignarPadrino={asignaciones.crearItem}
+                                                                onGuardarAsignacion={asignaciones.editarItem}
+                                                                onEliminarAsignacion={asignaciones.eliminarItem}
+                                                                onRegistrarVisita={focalizacion.crearItem}
+                                                              />
+                                                            )}
+                                                          </div>
+                                                        </td>
+                                                      </tr>
+                                                    )}
+                                                  </Fragment>
+                                                )
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
                         </td>
                       </tr>

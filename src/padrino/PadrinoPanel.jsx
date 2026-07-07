@@ -5,6 +5,7 @@ import { AvisoError, Cargando, Vacio } from '../components/Estado'
 import MarcaLogo from '../components/MarcaLogo'
 import TarjetaVisitaFocalizacion from '../components/TarjetaVisitaFocalizacion'
 import ColumnasVisitas from '../components/ColumnasVisitas'
+import { ordenarPorProyecto } from '../utils/proyectos'
 import estilos from './PadrinoPanel.module.css'
 
 // Vista pensada para celular (el padrino la revisa en campo): una sola
@@ -19,6 +20,7 @@ export default function PadrinoPanel() {
   const [error, setError] = useState(token ? null : 'Falta el token en el enlace.')
   const [cargando, setCargando] = useState(Boolean(token))
   const [municipio, setMunicipio] = useState('')
+  const [proyectos, setProyectos] = useState([])
 
   useEffect(() => {
     if (!token) return
@@ -27,24 +29,31 @@ export default function PadrinoPanel() {
       .catch((err) => setError(err.message))
       .finally(() => setCargando(false))
   }, [token])
+  // Catálogo completo de proyectos, solo para ordenar las tarjetas en el
+  // orden fijo de siempre (ver utils/proyectos.js).
+  useEffect(() => { apiGet('proyectos').then((r) => setProyectos(r.datos)).catch(() => {}) }, [])
 
   if (cargando) return <div className={estilos.envoltorio}><Cargando /></div>
   if (error) return <div className={estilos.envoltorio}><AvisoError>{error}</AvisoError></div>
 
   const { usuario, focalizacion, asignaciones } = datos
   // Una visita sin focalizar registrada (Registrar visita, en el admin) es
-  // una fila de `focalizacion` que nace directo en "realizada": no estaba
-  // "asignada" de antemano, así que no cuenta ahí (esa cuota ya la aporta
-  // la asignación), pero sí cuenta en "realizadas" — igual que totalesDe()
-  // en cargaPadrino.js.
+  // una fila de `focalizacion` que nace directo en "realizada" porque ya
+  // ocurrió — cuenta en "realizadas" y también en "asignadas" (una visita
+  // ya hecha prueba que al menos había esa asignación); se toma el mayor
+  // entre la cuota y lo ya registrado para no dejar "pendientes" negativos
+  // si el padrino ya hizo más de lo que tenía en cuota — igual que
+  // totalesDe() en cargaPadrino.js.
   const focalizacionPreasignada = focalizacion.filter((f) => f.meta_tipo !== 'visita_sin_focalizar')
-  const totalAsignadas = focalizacionPreasignada.length + asignaciones.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
+  const focalizacionSinFocalizarRegistrada = focalizacion.filter((f) => f.meta_tipo === 'visita_sin_focalizar')
+  const cuotaSinFocalizar = asignaciones.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
+  const totalAsignadas = focalizacionPreasignada.length + Math.max(cuotaSinFocalizar, focalizacionSinFocalizarRegistrada.length)
   const totalRealizadas = focalizacion.filter((f) => f.estado === 'realizada').length
 
   const municipios = Array.from(new Set(focalizacion.map((f) => f.municipio).filter(Boolean))).sort()
   const focalizacionFiltrada = municipio ? focalizacion.filter((f) => f.municipio === municipio) : focalizacion
-  const pendientes = focalizacionFiltrada.filter((f) => f.estado !== 'realizada')
-  const realizadas = focalizacionFiltrada.filter((f) => f.estado === 'realizada')
+  const pendientes = ordenarPorProyecto(focalizacionFiltrada.filter((f) => f.estado !== 'realizada'), proyectos)
+  const realizadas = ordenarPorProyecto(focalizacionFiltrada.filter((f) => f.estado === 'realizada'), proyectos)
 
   return (
     <>

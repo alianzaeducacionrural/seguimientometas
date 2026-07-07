@@ -32,7 +32,18 @@ export default function ResumenConvenios() {
       {convenios.datos.map((convenio) => {
         const aliado = aliados.datos.find((a) => String(a.id) === String(convenio.aliado_id))
         const nombresProyectos = nombresProyectosDe(convenio.proyectos_ids, proyectos.datos).join(', ')
-        const metasDelConvenio = metas.datos.filter((m) => String(m.convenio_id) === String(convenio.id))
+        // Mismo orden fijo de proyectos que en el resto de la app (ver
+        // utils/proyectos.js): agrupa las metas por proyecto en el orden
+        // del catálogo, no en el orden en que se crearon.
+        const metasDelConvenio = metas.datos
+          .filter((m) => String(m.convenio_id) === String(convenio.id))
+          .map((m, i) => ({ meta: m, i }))
+          .sort((a, b) => {
+            const ordenA = proyectos.datos.findIndex((p) => String(p.id) === String(a.meta.proyecto_id))
+            const ordenB = proyectos.datos.findIndex((p) => String(p.id) === String(b.meta.proyecto_id))
+            return (ordenA === -1 ? Infinity : ordenA) - (ordenB === -1 ? Infinity : ordenB) || a.i - b.i
+          })
+          .map(({ meta: m }) => m)
         const color = colorPorId(convenio.id)
 
         return (
@@ -52,8 +63,8 @@ export default function ResumenConvenios() {
               <table className={estilos.tabla}>
                 <thead>
                   <tr>
-                    <th>Actividad</th>
                     <th>Proyecto</th>
+                    <th>Actividad</th>
                     <th className={estilos.numero}>Meta</th>
                     <th className={estilos.numero}>Ejecutado</th>
                     <th>% Avance</th>
@@ -68,8 +79,8 @@ export default function ResumenConvenios() {
                     const proyectoMeta = proyectos.datos.find((p) => String(p.id) === String(meta.proyecto_id))
                     return (
                       <tr key={meta.id}>
-                        <td>{meta.descripcion}</td>
                         <td>{proyectoMeta?.nombre || '—'}</td>
+                        <td>{meta.descripcion}</td>
                         <td className={estilos.numero}>{metaNum}</td>
                         <td className={estilos.numero}>{ejecutado}</td>
                         <td>

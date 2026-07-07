@@ -3,22 +3,28 @@ import FilaAsignacion from './FilaAsignacion'
 import SelectorInstitucion from './SelectorInstitucion'
 import { AvisoError, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
-import { hoy } from '../../utils/formato'
+import { formatearFecha, hoy } from '../../utils/formato'
+import { coincideBusqueda } from '../../utils/texto'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
-// Gestión de una meta "visita sin focalizar": cuotas por padrino (KPIs +
-// "+ Asignar padrino") y, aparte, el registro de visitas reales ("+
-// Registrar visita": municipio/institución/sede/padrino/fecha) para tener
-// trazabilidad de qué sede se visitó — cada registro crea una fila normal
-// de `focalizacion` en estado "realizada" (no pasa por pendiente/programada
-// porque se carga después de ocurrida), así que también cuenta en el
-// ejecutado de la meta y aparece en Visitas por sede. La cantidad
-// realizada por padrino ya no se edita a mano: se cuenta desde esas
-// visitas registradas (`visitas`, filtradas por esta meta).
+// Gestión de una meta "visita sin focalizar", con dos secciones siempre
+// visibles para poder hacer seguimiento desde ambos lados a la vez:
+// "Visitas realizadas" (trazabilidad — municipio/institución/sede/padrino/
+// fecha de cada visita registrada con "+ Registrar visita", que crea una
+// fila normal de `focalizacion` en estado "realizada" y por eso también
+// cuenta en el ejecutado de la meta y aparece en Visitas por sede; con
+// filtros de municipio/institución + una búsqueda libre que filtra
+// mientras se escribe, sin botón) y "Asignación por padrino" (la cuota de
+// cada uno vía "+ Asignar padrino" + la FilaAsignacion table). Al elegir un
+// padrino en el modal de asignar, si ya tiene visitas realizadas sin cuota,
+// se precarga esa cantidad como punto de partida (editable).
 // Presentacional, igual que PanelFocalizacionMeta: recibe datos y
 // mutaciones por props para poder incrustarse en la pestaña Focalización.
 export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, padrinos, onAsignarPadrino, onGuardarAsignacion, onEliminarAsignacion, onRegistrarVisita, compacta = false }) {
+  const [municipioFiltro, setMunicipioFiltro] = useState('')
+  const [institucionFiltro, setInstitucionFiltro] = useState('')
+  const [busqueda, setBusqueda] = useState('')
   const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false)
   const [padrinoId, setPadrinoId] = useState('')
   const [cantidad, setCantidad] = useState('')
@@ -35,17 +41,42 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
   const padrinosAsignadosIds = new Set(asignaciones.map((a) => String(a.padrino_id)))
   const padrinosDisponibles = padrinos.filter((p) => !padrinosAsignadosIds.has(String(p.id)))
 
+  const visitasRealizadas = visitas.filter((v) => v.estado === 'realizada')
   const totalAsignado = asignaciones.reduce((sum, a) => sum + (Number(a.cantidad_asignada) || 0), 0)
-  const totalRealizado = visitas.filter((v) => v.estado === 'realizada').length
   const metaNum = Number(meta.cantidad_meta) || 0
   const cuadra = totalAsignado === metaNum
   const Titulo = compacta ? 'h3' : 'h2'
+
+  function nombreDe(padrinoId2) {
+    return padrinos.find((p) => String(p.id) === String(padrinoId2))?.nombre || '—'
+  }
+
+  // Filtros de la pestaña "Visitas realizadas": municipio/institución salen
+  // de las visitas ya registradas en esta meta, más una búsqueda libre que
+  // filtra mientras se escribe (municipio, institución, sede o padrino).
+  const municipiosVisitas = Array.from(new Set(visitasRealizadas.map((v) => v.municipio).filter(Boolean))).sort()
+  const institucionesVisitas = Array.from(new Set(
+    visitasRealizadas.filter((v) => !municipioFiltro || v.municipio === municipioFiltro).map((v) => v.institucion).filter(Boolean)
+  )).sort()
+  const visitasFiltradas = visitasRealizadas.filter((v) => {
+    if (municipioFiltro && v.municipio !== municipioFiltro) return false
+    if (institucionFiltro && v.institucion !== institucionFiltro) return false
+    return coincideBusqueda(busqueda, v.municipio, v.institucion, v.sede, nombreDe(v.padrino_id))
+  })
 
   function abrirModalAsignar() {
     setPadrinoId('')
     setCantidad('')
     setErrorAsignar(null)
     setModalAsignarAbierto(true)
+  }
+
+  // Si el padrino elegido ya tiene visitas realizadas para esta meta (pero
+  // todavía sin cuota), se precarga esa cantidad como punto de partida.
+  function elegirPadrinoAsignar(id) {
+    setPadrinoId(id)
+    const realizadasDelPadrino = visitasRealizadas.filter((v) => String(v.padrino_id) === String(id)).length
+    if (realizadasDelPadrino > 0) setCantidad(String(realizadasDelPadrino))
   }
 
   async function agregarAsignacion(e) {
@@ -116,17 +147,8 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
 
       <div className="kpis">
         <div className="kpi"><strong>{metaNum}</strong><span>Meta</span></div>
-        <div className="kpi">
-          <strong style={{ color: cuadra ? 'var(--logrado)' : 'var(--maduracion)' }}>{totalAsignado}</strong>
-          <span>Asignado</span>
-        </div>
-        <div className="kpi"><strong>{totalRealizado}</strong><span>Realizado</span></div>
+        <div className="kpi"><strong>{visitasRealizadas.length}</strong><span>Realizado</span></div>
       </div>
-      {!cuadra && (
-        <p className="vista-descripcion">
-          <span className="insignia insignia-programada">Lo asignado no cuadra con la meta</span>
-        </p>
-      )}
 
       {padrinos.length === 0 && <p className="vista-descripcion">No hay usuarios con rol "padrino" todavía — créalos en Usuarios para poder asignar.</p>}
 
@@ -160,7 +182,7 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
         <form onSubmit={agregarAsignacion} className="formulario-modal">
           <label className="campo">
             <span>Padrino</span>
-            <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
+            <select value={padrinoId} onChange={(e) => elegirPadrinoAsignar(e.target.value)}>
               <option value="">Seleccionar…</option>
               {padrinosDisponibles.map((p) => (
                 <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -187,8 +209,76 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
         </form>
       </Modal>
 
+      <h4>Visitas realizadas</h4>
+      {visitasRealizadas.length === 0 ? (
+        <Vacio>Todavía no hay visitas registradas en esta meta — registra la primera con el botón de arriba.</Vacio>
+      ) : (
+        <>
+          <div className="filtros">
+            <select value={municipioFiltro} onChange={(e) => { setMunicipioFiltro(e.target.value); setInstitucionFiltro('') }}>
+              <option value="">Todos los municipios</option>
+              {municipiosVisitas.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <select value={institucionFiltro} onChange={(e) => setInstitucionFiltro(e.target.value)}>
+              <option value="">Todas las instituciones</option>
+              {institucionesVisitas.map((i) => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
+            <input
+              type="search"
+              placeholder="Buscar municipio, institución, sede o padrino…"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+            {(municipioFiltro || institucionFiltro || busqueda) && (
+              <button type="button" onClick={() => { setMunicipioFiltro(''); setInstitucionFiltro(''); setBusqueda('') }}>
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+
+          {visitasFiltradas.length === 0 ? (
+            <Vacio>Ninguna visita coincide con el filtro.</Vacio>
+          ) : (
+            <div className="tabla-envoltura">
+              <table className="tabla">
+                <thead>
+                  <tr>
+                    <th>Municipio</th>
+                    <th>Institución</th>
+                    <th>Sede</th>
+                    <th>Padrino</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visitasFiltradas.map((v) => (
+                    <tr key={v.id}>
+                      <td>{v.municipio}</td>
+                      <td>{v.institucion}</td>
+                      <td>{v.sede}</td>
+                      <td>{nombreDe(v.padrino_id)}</td>
+                      <td>{formatearFecha(v.fecha_realizada)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      <h4 style={{ marginTop: '1.5rem' }}>Asignación por padrino</h4>
+      {!cuadra && asignaciones.length > 0 && (
+        <p className="vista-descripcion">
+          <span className="insignia insignia-programada">Lo asignado no cuadra con la meta</span>
+        </p>
+      )}
       {asignaciones.length === 0 ? (
-        <Vacio>Todavía no hay padrinos asignados a esta meta.</Vacio>
+        <Vacio>Todavía no hay cuotas asignadas a esta meta.</Vacio>
       ) : (
         <div className="tabla-envoltura">
           <table className="tabla">
@@ -205,8 +295,8 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
                 <FilaAsignacion
                   key={item.id}
                   item={item}
-                  padrinoNombre={padrinos.find((p) => String(p.id) === String(item.padrino_id))?.nombre || '—'}
-                  realizada={visitas.filter((v) => String(v.padrino_id) === String(item.padrino_id) && v.estado === 'realizada').length}
+                  padrinoNombre={nombreDe(item.padrino_id)}
+                  realizada={visitasRealizadas.filter((v) => String(v.padrino_id) === String(item.padrino_id)).length}
                   onGuardar={onGuardarAsignacion}
                   onEliminar={onEliminarAsignacion}
                 />

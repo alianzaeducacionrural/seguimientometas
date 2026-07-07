@@ -460,6 +460,7 @@ function getPadrinoResumen(token) {
       meta_tipo: meta ? meta.tipo : '',
       convenio_nombre: convenio ? convenio.nombre : '',
       proyecto_nombre: proyecto ? proyecto.nombre : '',
+      proyecto_id: meta ? meta.proyecto_id : '',
     });
   }
 
