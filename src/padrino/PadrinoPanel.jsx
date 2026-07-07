@@ -20,6 +20,7 @@ export default function PadrinoPanel() {
   const [error, setError] = useState(token ? null : 'Falta el token en el enlace.')
   const [cargando, setCargando] = useState(Boolean(token))
   const [municipio, setMunicipio] = useState('')
+  const [proyectoId, setProyectoId] = useState('')
   const [proyectos, setProyectos] = useState([])
 
   useEffect(() => {
@@ -51,7 +52,14 @@ export default function PadrinoPanel() {
   const totalRealizadas = focalizacion.filter((f) => f.estado === 'realizada').length
 
   const municipios = Array.from(new Set(focalizacion.map((f) => f.municipio).filter(Boolean))).sort()
-  const focalizacionFiltrada = municipio ? focalizacion.filter((f) => f.municipio === municipio) : focalizacion
+  // Solo los proyectos en los que este padrino tiene visitas asignadas,
+  // en el orden fijo del catálogo (ver utils/proyectos.js).
+  const proyectosDelPadrino = proyectos.filter((p) =>
+    focalizacion.some((f) => String(f.proyecto_id) === String(p.id))
+  )
+  const focalizacionFiltrada = focalizacion.filter((f) =>
+    (!municipio || f.municipio === municipio) && (!proyectoId || String(f.proyecto_id) === proyectoId)
+  )
   const pendientes = ordenarPorProyecto(focalizacionFiltrada.filter((f) => f.estado !== 'realizada'), proyectos)
   const realizadas = ordenarPorProyecto(focalizacionFiltrada.filter((f) => f.estado === 'realizada'), proyectos)
 
@@ -76,6 +84,27 @@ export default function PadrinoPanel() {
         <Vacio>No tienes sedes focalizadas asignadas.</Vacio>
       ) : (
         <>
+          {proyectosDelPadrino.length > 1 && (
+            <div className={`chips ${estilos.chipsProyecto}`}>
+              <button
+                type="button"
+                className={`chip${!proyectoId ? ' activo' : ''}`}
+                onClick={() => setProyectoId('')}
+              >
+                Todos los proyectos
+              </button>
+              {proyectosDelPadrino.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`chip${proyectoId === String(p.id) ? ' activo' : ''}`}
+                  onClick={() => setProyectoId(String(p.id))}
+                >
+                  {p.nombre}
+                </button>
+              ))}
+            </div>
+          )}
           {municipios.length > 1 && (
             <div className="filtros">
               <select value={municipio} onChange={(e) => setMunicipio(e.target.value)}>

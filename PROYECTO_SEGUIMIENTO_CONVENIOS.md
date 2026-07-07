@@ -161,7 +161,7 @@ El GAS lo lee directamente vía `SpreadsheetApp.openById()` para poblar los sele
 3. **Focalización** — gestiona toda la focalización y las visitas sin focalizar sin entrar a la tabla de convenios: filtro por proyecto, acordeón por convenio con el alta/reasignación/cambio de estado de cada una de sus metas.
 4. **Visitas por sede** — agrupada por sede: cuántas visitas tiene por proyecto, y al elegir un proyecto el detalle (fecha, padrino, estado) de esas visitas puntuales. Filtros: proyecto, municipio, padrino.
 5. **Panel admin** — CRUD de convenios/metas/aliados, asignación y reasignación de focalización y visitas sin focalizar, programación de fechas, marcar visitas como realizadas.
-6. **Vista líder** — sus proyectos asociados (uno o varios) en 3 pestañas: seguimiento a metas, vista de padrinos (lectura) y focalización (acá gestiona: reasignar padrino y cambiar estado de la visita).
+6. **Vista líder** — sus proyectos asociados (uno o varios) en 3 pestañas: seguimiento a metas, focalización (acá gestiona: reasignar padrino y cambiar estado de la visita) y tus visitas focalizadas (sus propias visitas asignadas como visitante, de solo lectura, igual que el panel de un padrino — puede tener visitas en proyectos que no lidera).
 7. **Vista padrino** — solo sus propias asignaciones y su estado.
 
 ---

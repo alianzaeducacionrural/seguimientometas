@@ -4,6 +4,10 @@ import { useState } from 'react'
 // se escribe a mano — la calcula quien usa esta fila contando las visitas
 // registradas en `focalizacion` para esta meta+padrino (ver
 // PanelAsignacionesMeta), y llega aquí como `realizada` de solo lectura.
+// Si la cuota cambia por fuera (p.ej. sincronizarCuota la sube sola al
+// registrar una visita), el padre le pasa una `key` que incluye
+// cantidad_asignada para forzar un remount con el valor nuevo — el
+// useState inicial no se vuelve a evaluar solo porque cambie la prop.
 export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuardar, onEliminar }) {
   const [asignada, setAsignada] = useState(item.cantidad_asignada)
   const [guardando, setGuardando] = useState(false)

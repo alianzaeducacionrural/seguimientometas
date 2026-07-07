@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import FilaAsignacion from './FilaAsignacion'
 import SelectorInstitucion from './SelectorInstitucion'
 import { AvisoError, Vacio } from '../../components/Estado'
@@ -19,7 +19,10 @@ const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 // mientras se escribe, sin botón) y "Asignación por padrino" (la cuota de
 // cada uno vía "+ Asignar padrino" + la FilaAsignacion table). Al elegir un
 // padrino en el modal de asignar, si ya tiene visitas realizadas sin cuota,
-// se precarga esa cantidad como punto de partida (editable).
+// se precarga esa cantidad como punto de partida (editable). Además, la
+// cuota de cada padrino se mantiene sincronizada sola con lo realizado
+// (ver el useEffect de reconciliación más abajo): cubre tanto visitas
+// nuevas como las que ya estaban registradas antes de esta función existir.
 // Presentacional, igual que PanelFocalizacionMeta: recibe datos y
 // mutaciones por props para poder incrustarse en la pestaña Focalización.
 export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, padrinos, onAsignarPadrino, onGuardarAsignacion, onEliminarAsignacion, onRegistrarVisita, compacta = false }) {
@@ -48,7 +51,6 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
   const visitasRealizadas = visitas.filter((v) => v.estado === 'realizada')
   const totalAsignado = asignaciones.reduce((sum, a) => sum + (Number(a.cantidad_asignada) || 0), 0)
   const metaNum = Number(meta.cantidad_meta) || 0
-  const cuadra = totalAsignado === metaNum
   const Titulo = compacta ? 'h3' : 'h2'
 
   function nombreDe(padrinoId2) {
@@ -108,6 +110,51 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
     setErrorVisita(null)
     setModalVisitaAbierto(true)
   }
+
+  // Conteo de visitas realizadas por padrino, para reconciliar la cuota
+  // (abajo) y para "Cantidad realizada" en la tabla de asignaciones.
+  const conteoPorPadrino = {}
+  visitasRealizadas.forEach((v) => {
+    const id = String(v.padrino_id || '')
+    if (id) conteoPorPadrino[id] = (conteoPorPadrino[id] || 0) + 1
+  })
+  // Firmas estables (no cambian de identidad en cada render) para disparar
+  // la reconciliación solo cuando el conteo real o las cuotas cambian.
+  const firmaConteo = Object.entries(conteoPorPadrino).sort().map(([id, n]) => `${id}:${n}`).join(',')
+  const firmaAsignaciones = asignaciones.map((a) => `${a.padrino_id}:${a.cantidad_asignada}`).sort().join(',')
+
+  // Mantiene "Asignación por padrino" sincronizada sola con lo realizado:
+  // cualquier padrino con visitas registradas para esta meta —nuevas o ya
+  // existentes de antes de esta función— debe tener cantidad_asignada al
+  // menos igual a lo realizado. Crea la fila si falta, o sube la cuota si
+  // quedó corta; nunca baja una cuota que el admin puso más alta a
+  // propósito. Corre en cada cambio real de datos, no solo tras registrar.
+  // `firmaEnCursoRef` evita que la misma combinación de datos se reconcilie
+  // dos veces en paralelo (p.ej. el doble-invoke de efectos de StrictMode en
+  // desarrollo) — sin esto, dos "crear" concurrentes para el mismo padrino
+  // podían ganarle la carrera al id autoincremental de la hoja y dejar dos
+  // filas duplicadas.
+  const firmaEnCursoRef = useRef(null)
+  useEffect(() => {
+    const firma = `${meta.id}|${firmaConteo}|${firmaAsignaciones}`
+    if (firmaEnCursoRef.current === firma) return
+    firmaEnCursoRef.current = firma
+    let cancelado = false
+    async function reconciliar() {
+      for (const [padrinoIdConVisitas, cantidad] of Object.entries(conteoPorPadrino)) {
+        if (cancelado) return
+        const existente = asignaciones.find((a) => String(a.padrino_id) === padrinoIdConVisitas)
+        if (!existente) {
+          await onAsignarPadrino({ meta_id: meta.id, padrino_id: padrinoIdConVisitas, cantidad_asignada: cantidad, cantidad_realizada: 0 })
+        } else if ((Number(existente.cantidad_asignada) || 0) < cantidad) {
+          await onGuardarAsignacion(existente.id, { cantidad_asignada: cantidad })
+        }
+      }
+    }
+    reconciliar()
+    return () => { cancelado = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta.id, firmaConteo, firmaAsignaciones])
 
   async function registrarVisita(e) {
     e.preventDefault()
@@ -287,11 +334,6 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
       </div>
       {asignacionAbierta && (
         <>
-          {!cuadra && asignaciones.length > 0 && (
-            <p className="vista-descripcion">
-              <span className="insignia insignia-programada">Lo asignado no cuadra con la meta</span>
-            </p>
-          )}
           {asignaciones.length === 0 ? (
             <Vacio>Todavía no hay cuotas asignadas a esta meta.</Vacio>
           ) : (
@@ -308,7 +350,7 @@ export default function PanelAsignacionesMeta({ meta, asignaciones, visitas, pad
                 <tbody>
                   {asignaciones.map((item) => (
                     <FilaAsignacion
-                      key={item.id}
+                      key={`${item.id}-${item.cantidad_asignada}`}
                       item={item}
                       padrinoNombre={nombreDe(item.padrino_id)}
                       realizada={visitasRealizadas.filter((v) => String(v.padrino_id) === String(item.padrino_id)).length}

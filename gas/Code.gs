@@ -172,20 +172,33 @@ function crearRegistro(entidad, datos) {
 
   const hoja = hojaDe(nombreHoja);
   const encabezados = ENCABEZADOS[nombreHoja];
-  const registro = Object.assign({}, datos, { id: String(siguienteId(hoja)) });
 
-  // El token de usuarios es una credencial de magic-link: lo genera el
-  // servidor, nunca se acepta el que mande el cliente.
-  if (entidad === 'usuarios') {
-    registro.token = generarToken(tokensExistentes(hoja));
+  // Dos creaciones concurrentes (dos pestañas, un doble clic, un efecto de
+  // React que se dispara dos veces) pueden ejecutarse en paralelo — sin
+  // este lock, siguienteId()/getLastRow() de ambas leen el mismo estado
+  // "antes" y pueden calcular el mismo id o pisarse la fila, dejando
+  // duplicados. El lock serializa el cálculo del id + la escritura de la
+  // fila para que eso no pueda pasar.
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const registro = Object.assign({}, datos, { id: String(siguienteId(hoja)) });
+
+    // El token de usuarios es una credencial de magic-link: lo genera el
+    // servidor, nunca se acepta el que mande el cliente.
+    if (entidad === 'usuarios') {
+      registro.token = generarToken(tokensExistentes(hoja));
+    }
+
+    const filaIndex = hoja.getLastRow() + 1;
+    encabezados.forEach((campo, i) => {
+      escribirValor(hoja, filaIndex, i + 1, campo, registro[campo] !== undefined ? registro[campo] : '');
+    });
+
+    return { ok: true, datos: registro };
+  } finally {
+    lock.releaseLock();
   }
-
-  const filaIndex = hoja.getLastRow() + 1;
-  encabezados.forEach((campo, i) => {
-    escribirValor(hoja, filaIndex, i + 1, campo, registro[campo] !== undefined ? registro[campo] : '');
-  });
-
-  return { ok: true, datos: registro };
 }
 
 function editarRegistro(entidad, id, cambios) {
@@ -405,8 +418,21 @@ function getLiderConvenios(token) {
     idsDeLista(c.proyectos_ids).some(pid => misProyectosIds.includes(pid))
   );
   const convenioIds = convenios.map(c => String(c.id));
+  const convenioPorId = Object.fromEntries(convenios.map(c => [String(c.id), c]));
 
-  const metas = listarFilas(HOJAS.METAS).filter(m => convenioIds.includes(String(m.convenio_id)));
+  // Un convenio puede abarcar varios proyectos (p.ej. "Modelos Educativos
+  // Flexibles" toca los 6-7 a la vez) — quedarse solo con el filtro a nivel
+  // de convenio traería TODAS sus metas, incluidas las de proyectos que
+  // este líder no lidera. Cada meta se filtra por su propio proyecto_id;
+  // las metas viejas sin proyecto_id caen al criterio del convenio (mismo
+  // fallback que VisitasSede/Focalizacion en el admin).
+  const metas = listarFilas(HOJAS.METAS).filter(m => {
+    if (!convenioIds.includes(String(m.convenio_id))) return false;
+    const proyectoMeta = String(m.proyecto_id || '').trim();
+    if (proyectoMeta) return misProyectosIds.includes(proyectoMeta);
+    const convenio = convenioPorId[String(m.convenio_id)];
+    return convenio ? idsDeLista(convenio.proyectos_ids).some(pid => misProyectosIds.includes(pid)) : false;
+  });
   const metaIds = metas.map(m => String(m.id));
 
   const focalizacion = listarFilas(HOJAS.FOCALIZACION).filter(f => metaIds.includes(String(f.meta_id)));
@@ -420,6 +446,36 @@ function getLiderConvenios(token) {
     .filter(u => u.rol === 'padrino' || u.rol === 'lider')
     .map(u => ({ id: u.id, nombre: u.nombre }));
 
+  // Las visitas propias del líder (como visitante asignado, no como quien
+  // gestiona a su equipo) pueden estar en CUALQUIER proyecto del sistema —
+  // un líder es asignable igual que un padrino en cualquier convenio, no
+  // solo en los que lidera — así que se buscan aparte, sin acotar por
+  // misProyectosIds, con el mismo enriquecimiento (conContexto) que
+  // getPadrinoResumen, para que "Tus visitas focalizadas" se vea igual que
+  // el panel de padrino.
+  const misVisitas = listarFilas(HOJAS.FOCALIZACION).filter(f => String(f.padrino_id) === String(usuario.id));
+  const misAsignaciones = listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION).filter(a => String(a.padrino_id) === String(usuario.id));
+  const metaIdsPropias = new Set([...misVisitas.map(f => String(f.meta_id)), ...misAsignaciones.map(a => String(a.meta_id))]);
+  const metasPropias = listarFilas(HOJAS.METAS).filter(m => metaIdsPropias.has(String(m.id)));
+  const metaPropiaPorId = Object.fromEntries(metasPropias.map(m => [String(m.id), m]));
+  const convenioIdsPropios = new Set(metasPropias.map(m => String(m.convenio_id)));
+  const conveniosPropios = listarFilas(HOJAS.CONVENIOS).filter(c => convenioIdsPropios.has(String(c.id)));
+  const convenioPropioPorId = Object.fromEntries(conveniosPropios.map(c => [String(c.id), c]));
+  const proyectoPorId = Object.fromEntries(listarFilas(HOJAS.PROYECTOS).map(p => [String(p.id), p]));
+
+  function conContextoPropio(item) {
+    const meta = metaPropiaPorId[String(item.meta_id)];
+    const convenio = meta && convenioPropioPorId[String(meta.convenio_id)];
+    const proyecto = meta && proyectoPorId[String(meta.proyecto_id)];
+    return Object.assign({}, item, {
+      meta_descripcion: meta ? meta.descripcion : '',
+      meta_tipo: meta ? meta.tipo : '',
+      convenio_nombre: convenio ? convenio.nombre : '',
+      proyecto_nombre: proyecto ? proyecto.nombre : '',
+      proyecto_id: meta ? meta.proyecto_id : '',
+    });
+  }
+
   return {
     ok: true,
     usuario: { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol },
@@ -430,6 +486,8 @@ function getLiderConvenios(token) {
     focalizacion,
     asignaciones,
     padrinos,
+    misVisitas: misVisitas.map(conContextoPropio),
+    misAsignaciones: misAsignaciones.map(conContextoPropio),
   };
 }
 

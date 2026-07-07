@@ -65,6 +65,10 @@
   color: var(--tinta-3);
 }
 
+.chipsProyecto {
+  margin-bottom: 0.75rem;
+}
+
 /* Resumen superior: las dos cifras grandes del padrino */
 .resumen {
   display: flex;

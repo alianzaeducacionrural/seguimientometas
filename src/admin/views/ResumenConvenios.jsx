@@ -1,8 +1,6 @@
 import useEntidad from '../hooks/useEntidad'
-import estilos from '../../components/TarjetaResumen.module.css'
-import { colorAvance, colorPorId } from '../../utils/colores'
-import { ejecutadoDe } from '../../utils/avance'
-import { nombresProyectosDe } from '../../utils/proyectos'
+import TarjetaAvanceConvenio from '../../components/TarjetaAvanceConvenio'
+import { ordenarPorProyecto } from '../../utils/proyectos'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 
 export default function ResumenConvenios() {
@@ -31,80 +29,23 @@ export default function ResumenConvenios() {
       <h2>Avance por convenio</h2>
       {convenios.datos.map((convenio) => {
         const aliado = aliados.datos.find((a) => String(a.id) === String(convenio.aliado_id))
-        const nombresProyectos = nombresProyectosDe(convenio.proyectos_ids, proyectos.datos).join(', ')
-        // Mismo orden fijo de proyectos que en el resto de la app (ver
-        // utils/proyectos.js): agrupa las metas por proyecto en el orden
-        // del catálogo, no en el orden en que se crearon.
-        const metasDelConvenio = metas.datos
-          .filter((m) => String(m.convenio_id) === String(convenio.id))
-          .map((m, i) => ({ meta: m, i }))
-          .sort((a, b) => {
-            const ordenA = proyectos.datos.findIndex((p) => String(p.id) === String(a.meta.proyecto_id))
-            const ordenB = proyectos.datos.findIndex((p) => String(p.id) === String(b.meta.proyecto_id))
-            return (ordenA === -1 ? Infinity : ordenA) - (ordenB === -1 ? Infinity : ordenB) || a.i - b.i
-          })
-          .map(({ meta: m }) => m)
-        const color = colorPorId(convenio.id)
+        // Orden fijo de proyectos (ver utils/proyectos.js), no el orden en
+        // que se crearon las metas.
+        const metasDelConvenio = ordenarPorProyecto(
+          metas.datos.filter((m) => String(m.convenio_id) === String(convenio.id)),
+          proyectos.datos
+        )
 
         return (
-          <div key={convenio.id} className={estilos.card} style={{ '--acento': color }}>
-            <div className={estilos.header}>
-              <h3>{convenio.nombre}</h3>
-              <p>
-                {aliado?.nombre || '—'} · {convenio.anio_vigencia} · {convenio.estado}
-                {nombresProyectos && ` · ${nombresProyectos}`}
-              </p>
-            </div>
-
-            {metasDelConvenio.length === 0 ? (
-              <p className={estilos.sinMetas}>Sin metas todavía.</p>
-            ) : (
-              <div className={estilos.tablaWrap}>
-              <table className={estilos.tabla}>
-                <thead>
-                  <tr>
-                    <th>Proyecto</th>
-                    <th>Actividad</th>
-                    <th className={estilos.numero}>Meta</th>
-                    <th className={estilos.numero}>Ejecutado</th>
-                    <th>% Avance</th>
-                    <th className={estilos.numero}>Faltante</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {metasDelConvenio.map((meta) => {
-                    const metaNum = Number(meta.cantidad_meta) || 0
-                    const ejecutado = ejecutadoDe(meta, focalizacion.datos, avancesManuales.datos)
-                    const pct = metaNum > 0 ? Math.round((ejecutado / metaNum) * 100) : 0
-                    const pctBarra = Math.min(pct, 100)
-                    const proyectoMeta = proyectos.datos.find((p) => String(p.id) === String(meta.proyecto_id))
-                    const faltante = Math.max(metaNum - ejecutado, 0)
-                    return (
-                      <tr key={meta.id}>
-                        <td>{proyectoMeta?.nombre || '—'}</td>
-                        <td>{meta.descripcion}</td>
-                        <td className={estilos.numero}>{metaNum}</td>
-                        <td className={estilos.numero}>{ejecutado}</td>
-                        <td>
-                          <div className={estilos.avanceCelda}>
-                            <div className={estilos.track}>
-                              <div
-                                className={estilos.fill}
-                                style={{ width: `${pctBarra}%`, background: colorAvance(pct) }}
-                              />
-                            </div>
-                            <span className={estilos.pct}>{pct}%</span>
-                          </div>
-                        </td>
-                        <td className={estilos.numero}>{faltante}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              </div>
-            )}
-          </div>
+          <TarjetaAvanceConvenio
+            key={convenio.id}
+            convenio={convenio}
+            aliado={aliado}
+            metasDelConvenio={metasDelConvenio}
+            proyectos={proyectos.datos}
+            focalizacion={focalizacion.datos}
+            avancesManuales={avancesManuales.datos}
+          />
         )
       })}
     </section>

@@ -1,32 +1,35 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { apiGet, editar } from '../utils/api'
-import { colorAvance, colorPorId } from '../utils/colores'
-import { ejecutadoDe } from '../utils/avance'
 import { totalesDe, conContexto } from '../utils/cargaPadrino'
 import { accionesEstadoFocalizacion } from '../utils/estadoFocalizacion'
 import { idsDeLista, ordenarPorProyecto } from '../utils/proyectos'
-import estilos from '../components/TarjetaResumen.module.css'
 import { AvisoError, Cargando, Vacio } from '../components/Estado'
 import MarcaLogo from '../components/MarcaLogo'
 import Avatar from '../components/Avatar'
 import Flecha from '../components/Flecha'
+import TarjetaVisitaFocalizacion from '../components/TarjetaVisitaFocalizacion'
 import TarjetaVisitaEditable from '../components/TarjetaVisitaEditable'
+import TarjetaAvanceConvenio from '../components/TarjetaAvanceConvenio'
 import ColumnasVisitas from '../components/ColumnasVisitas'
 import FilaAsignacionCompacta from '../components/FilaAsignacionCompacta'
+import estilosPadrino from '../padrino/PadrinoPanel.module.css'
 
 const PESTANAS = [
   { id: 'metas', etiqueta: 'Seguimiento a metas' },
-  { id: 'padrinos', etiqueta: 'Vista de padrinos' },
   { id: 'focalizacion', etiqueta: 'Focalización' },
+  { id: 'misVisitas', etiqueta: 'Tus visitas focalizadas' },
 ]
 
 // El líder ve convenios/metas/focalización/carga de sus proyectos (uno o
 // varios, filtrados en el servidor por el token — ver getLiderConvenios en
-// Code.gs) en tres pestañas: avance de metas (lectura), carga por padrino
-// (lectura, para nivelar el equipo) y focalización (acá SÍ puede actuar:
-// reasignar padrino y avanzar/revertir el estado de la visita, igual que
-// Actividades por padrino en el admin — ver TarjetaVisitaEditable).
+// Code.gs) en tres pestañas: avance de metas (lectura, igual que Avance por
+// convenio en el admin), focalización (acá SÍ puede actuar: reasignar
+// padrino y avanzar/revertir el estado de la visita, igual que Actividades
+// por padrino en el admin — ver TarjetaVisitaEditable) y sus propias
+// visitas asignadas como visitante (de solo lectura, igual que el panel de
+// un padrino — un líder es asignable en cualquier proyecto, no solo en los
+// que lidera, así que esta pestaña no se limita a sus proyectos).
 export default function LiderPanel() {
   const [params] = useSearchParams()
   const token = params.get('token') || ''
@@ -41,6 +44,8 @@ export default function LiderPanel() {
   const [abiertoId, setAbiertoId] = useState(null)
   const [municipio, setMunicipio] = useState('')
   const [padrinoId, setPadrinoId] = useState('')
+  const [misMunicipio, setMisMunicipio] = useState('')
+  const [misProyectoId, setMisProyectoId] = useState('')
 
   const cargar = useCallback(() => {
     if (!token) return Promise.resolve()
@@ -61,7 +66,7 @@ export default function LiderPanel() {
   if (cargando) return <Envoltorio><Cargando /></Envoltorio>
   if (error) return <Envoltorio><AvisoError>{error}</AvisoError></Envoltorio>
 
-  const { usuario, convenios, metas, focalizacion, asignaciones, aliados, proyectos, padrinos } = datos
+  const { usuario, convenios, metas, focalizacion, asignaciones, aliados, proyectos, padrinos, misVisitas, misAsignaciones } = datos
 
   async function editarFocalizacion(id, campos) {
     await editar('focalizacion', id, campos)
@@ -140,18 +145,13 @@ export default function LiderPanel() {
       </div>
 
       {pestana === 'metas' && (
-        <SeguimientoMetas convenios={conveniosFiltrados} metas={metasFiltradas} aliados={aliados} focalizacion={focalizacion} avancesManuales={avancesManuales} />
-      )}
-
-      {pestana === 'padrinos' && (
-        <VistaPadrinos
-          padrinos={padrinosConCargaTotal}
-          focalizacion={focalizacionFiltrada}
-          asignaciones={asignacionesPorProyecto}
-          metaPorId={metaPorId}
-          municipio={municipio}
-          setMunicipio={setMunicipio}
-          municipios={municipios}
+        <SeguimientoMetas
+          convenios={conveniosFiltrados}
+          metas={metasFiltradas}
+          aliados={aliados}
+          proyectos={todosProyectos}
+          focalizacion={focalizacion}
+          avancesManuales={avancesManuales}
         />
       )}
 
@@ -178,127 +178,48 @@ export default function LiderPanel() {
           onReasignarAsignacion={(id, nuevoPadrinoId) => editarAsignacion(id, { padrino_id: nuevoPadrinoId })}
         />
       )}
+
+      {pestana === 'misVisitas' && (
+        <TusVisitas
+          misVisitas={misVisitas}
+          misAsignaciones={misAsignaciones}
+          todosProyectos={todosProyectos}
+          municipio={misMunicipio}
+          setMunicipio={setMisMunicipio}
+          proyectoId={misProyectoId}
+          setProyectoId={setMisProyectoId}
+        />
+      )}
     </Envoltorio>
   )
 }
 
-function SeguimientoMetas({ convenios, metas, aliados, focalizacion, avancesManuales }) {
+function SeguimientoMetas({ convenios, metas, aliados, proyectos, focalizacion, avancesManuales }) {
   return (
     <>
       <h2>Avance de tus convenios</h2>
       {convenios.length === 0 && <Vacio>Todavía no hay convenios en tus proyectos.</Vacio>}
       {convenios.map((convenio) => {
         const aliado = aliados.find((a) => String(a.id) === String(convenio.aliado_id))
-        const metasDelConvenio = metas.filter((m) => String(m.convenio_id) === String(convenio.id))
-        const color = colorPorId(convenio.id)
+        // Orden fijo de proyectos (ver utils/proyectos.js), no el orden en
+        // que se crearon las metas.
+        const metasDelConvenio = ordenarPorProyecto(
+          metas.filter((m) => String(m.convenio_id) === String(convenio.id)),
+          proyectos
+        )
 
         return (
-          <div key={convenio.id} className={estilos.card} style={{ '--acento': color }}>
-            <div className={estilos.header}>
-              <h3>{convenio.nombre}</h3>
-              <p>{aliado?.nombre || '—'} · {convenio.anio_vigencia} · {convenio.estado}</p>
-            </div>
-            {metasDelConvenio.length === 0 ? (
-              <p className={estilos.sinMetas}>Sin metas todavía.</p>
-            ) : (
-              <div className={estilos.tablaWrap}>
-              <table className={estilos.tabla}>
-                <thead>
-                  <tr>
-                    <th>Actividad</th>
-                    <th className={estilos.numero}>Meta</th>
-                    <th className={estilos.numero}>Ejecutado</th>
-                    <th>% Avance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {metasDelConvenio.map((meta) => {
-                    const metaNum = Number(meta.cantidad_meta) || 0
-                    const ejecutado = ejecutadoDe(meta, focalizacion, avancesManuales)
-                    const pct = metaNum > 0 ? Math.round((ejecutado / metaNum) * 100) : 0
-                    return (
-                      <tr key={meta.id}>
-                        <td>{meta.descripcion}</td>
-                        <td className={estilos.numero}>{metaNum}</td>
-                        <td className={estilos.numero}>{ejecutado}</td>
-                        <td>
-                          <div className={estilos.avanceCelda}>
-                            <div className={estilos.track}>
-                              <div className={estilos.fill} style={{ width: `${Math.min(pct, 100)}%`, background: colorAvance(pct) }} />
-                            </div>
-                            <span className={estilos.pct}>{pct}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              </div>
-            )}
-          </div>
+          <TarjetaAvanceConvenio
+            key={convenio.id}
+            convenio={convenio}
+            aliado={aliado}
+            metasDelConvenio={metasDelConvenio}
+            proyectos={proyectos}
+            focalizacion={focalizacion}
+            avancesManuales={avancesManuales}
+          />
         )
       })}
-    </>
-  )
-}
-
-// Vista rápida de solo lectura para nivelar la carga del equipo: una fila
-// por padrino con sus cifras, sin acordeón — para actuar sobre una visita
-// puntual está la pestaña Focalización.
-function VistaPadrinos({ padrinos, focalizacion, asignaciones, metaPorId, municipio, setMunicipio, municipios }) {
-  return (
-    <>
-      <h2>Carga de tus padrinos</h2>
-      {padrinos.length === 0 ? (
-        <Vacio>Todavía no hay padrinos con visitas asignadas en tus convenios.</Vacio>
-      ) : (
-        <>
-          {municipios.length > 1 && (
-            <div className="filtros">
-              <select value={municipio} onChange={(e) => setMunicipio(e.target.value)}>
-                <option value="">Todos los municipios</option>
-                {municipios.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              {municipio && (
-                <button type="button" onClick={() => setMunicipio('')}>Limpiar filtro</button>
-              )}
-            </div>
-          )}
-          <div className="tabla-envoltura">
-            <table className="tabla">
-              <thead>
-                <tr>
-                  <th>Padrino</th>
-                  <th className="numero">Asignadas</th>
-                  <th className="numero">Realizadas</th>
-                  <th className="numero">Pendientes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {padrinos.map((padrino) => {
-                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones, metaPorId)
-                  return (
-                    <tr key={padrino.id}>
-                      <td>
-                        <span className="celda-persona">
-                          <Avatar id={padrino.id} nombre={padrino.nombre} tamano={28} />
-                          {padrino.nombre}
-                        </span>
-                      </td>
-                      <td className="numero">{asignadas}</td>
-                      <td className="numero">{realizadas}</td>
-                      <td className="numero">{pendientes}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
     </>
   )
 }
@@ -447,6 +368,97 @@ function TablaFocalizacion({
             </table>
           </div>
         </>
+      )}
+    </>
+  )
+}
+
+// Las visitas propias del líder como visitante (no como quien gestiona a su
+// equipo) — de solo lectura, con los mismos filtros y tarjetas que usa un
+// padrino en su propio panel (proyecto en botones + municipio en select),
+// porque en esto un líder es exactamente un padrino más.
+function TusVisitas({ misVisitas, misAsignaciones, todosProyectos, municipio, setMunicipio, proyectoId, setProyectoId }) {
+  const focalizacionPreasignada = misVisitas.filter((f) => f.meta_tipo !== 'visita_sin_focalizar')
+  const focalizacionSinFocalizarRegistrada = misVisitas.filter((f) => f.meta_tipo === 'visita_sin_focalizar')
+  const cuotaSinFocalizar = misAsignaciones.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
+  const totalAsignadas = focalizacionPreasignada.length + Math.max(cuotaSinFocalizar, focalizacionSinFocalizarRegistrada.length)
+  const totalRealizadas = misVisitas.filter((f) => f.estado === 'realizada').length
+
+  const municipios = Array.from(new Set(misVisitas.map((f) => f.municipio).filter(Boolean))).sort()
+  const proyectosConVisitas = todosProyectos.filter((p) => misVisitas.some((f) => String(f.proyecto_id) === String(p.id)))
+  const visitasFiltradas = misVisitas.filter((f) =>
+    (!municipio || f.municipio === municipio) && (!proyectoId || String(f.proyecto_id) === proyectoId)
+  )
+  const pendientes = ordenarPorProyecto(visitasFiltradas.filter((f) => f.estado !== 'realizada'), todosProyectos)
+  const realizadas = ordenarPorProyecto(visitasFiltradas.filter((f) => f.estado === 'realizada'), todosProyectos)
+
+  return (
+    <>
+      <div className="kpis">
+        <div className="kpi"><strong>{totalAsignadas}</strong><span>Asignadas</span></div>
+        <div className="kpi"><strong>{totalRealizadas}</strong><span>Realizadas</span></div>
+      </div>
+
+      <h2>Tus visitas focalizadas</h2>
+      {misVisitas.length === 0 ? (
+        <Vacio>No tienes sedes focalizadas asignadas.</Vacio>
+      ) : (
+        <>
+          {proyectosConVisitas.length > 1 && (
+            <div className="chips">
+              <button type="button" className={`chip${!proyectoId ? ' activo' : ''}`} onClick={() => setProyectoId('')}>
+                Todos los proyectos
+              </button>
+              {proyectosConVisitas.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`chip${proyectoId === String(p.id) ? ' activo' : ''}`}
+                  onClick={() => setProyectoId(String(p.id))}
+                >
+                  {p.nombre}
+                </button>
+              ))}
+            </div>
+          )}
+          {municipios.length > 1 && (
+            <div className="filtros">
+              <select value={municipio} onChange={(e) => setMunicipio(e.target.value)}>
+                <option value="">Todos los municipios</option>
+                {municipios.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              {municipio && (
+                <button type="button" onClick={() => setMunicipio('')}>Limpiar filtro</button>
+              )}
+            </div>
+          )}
+          <ColumnasVisitas
+            pendientes={pendientes}
+            realizadas={realizadas}
+            renderTarjeta={(item) => <TarjetaVisitaFocalizacion key={item.id} item={item} />}
+          />
+        </>
+      )}
+
+      <h2>Tus visitas sin focalizar</h2>
+      {misAsignaciones.length === 0 ? (
+        <Vacio>No tienes asignaciones sin focalizar.</Vacio>
+      ) : (
+        misAsignaciones.map((a) => {
+          const realizadasDeLaMeta = misVisitas.filter((f) => String(f.meta_id) === String(a.meta_id) && f.estado === 'realizada').length
+          return (
+            <div key={a.id} className={estilosPadrino.tarjeta}>
+              <h3>{a.convenio_nombre}</h3>
+              <p>{a.meta_descripcion}</p>
+              <div className={estilosPadrino.filaNumeros}>
+                <div className={estilosPadrino.numero}><span>{a.cantidad_asignada}</span><span>Asignadas</span></div>
+                <div className={estilosPadrino.numero}><span>{realizadasDeLaMeta}</span><span>Realizadas</span></div>
+              </div>
+            </div>
+          )
+        })
       )}
     </>
   )
