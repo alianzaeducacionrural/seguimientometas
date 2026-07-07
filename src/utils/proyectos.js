@@ -31,3 +31,20 @@ export function ordenarPorProyecto(items, proyectos) {
     .sort((a, b) => ordenDeProyecto(a.item.proyecto_id, proyectos) - ordenDeProyecto(b.item.proyecto_id, proyectos) || a.i - b.i)
     .map(({ item }) => item)
 }
+
+// Abreviaturas de los 7 proyectos fijos, para columnas angostas (p.ej. la
+// tabla de Visitas por sede). Si algún día se agrega un proyecto nuevo sin
+// abreviatura conocida, se cae a sus 3 primeras letras en mayúscula.
+const ABREVIATURAS_PROYECTO = {
+  'Escuela Nueva': 'EN',
+  'Posprimaria': 'POS',
+  'Educación Media': 'EM',
+  'Escuela y Café': 'EC',
+  'Seguridad Alimentaria': 'SA',
+  'Escuela Virtual': 'EV',
+  'La Universidad en el Campo': 'UC',
+}
+
+export function abreviaturaProyecto(nombre) {
+  return ABREVIATURAS_PROYECTO[nombre] || String(nombre || '').slice(0, 3).toUpperCase()
+}

@@ -5,25 +5,11 @@ import Flecha from '../../components/Flecha'
 import TarjetaVisitaEditable from '../../components/TarjetaVisitaEditable'
 import ColumnasVisitas from '../../components/ColumnasVisitas'
 import FilaAsignacionCompacta from '../../components/FilaAsignacionCompacta'
+import EncabezadoOrdenable from '../../components/EncabezadoOrdenable'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import { totalesDe, conContexto } from '../../utils/cargaPadrino'
 import { ordenarPorProyecto } from '../../utils/proyectos'
-
-// Encabezado clicable: alterna la columna de orden (o invierte la
-// dirección si ya era la activa) y muestra una flecha en la que está activa.
-function EncabezadoOrdenable({ columna, orden, onOrdenar, numero, children }) {
-  const activo = orden.columna === columna
-  return (
-    <th
-      className={`th-ordenable${numero ? ' numero' : ''}`}
-      onClick={() => onOrdenar(columna)}
-    >
-      {children}
-      {activo && <span className="th-ordenable-flecha"> {orden.asc ? '▲' : '▼'}</span>}
-    </th>
-  )
-}
 
 export default function ActividadesPadrino() {
   const usuarios = useEntidad('usuarios')

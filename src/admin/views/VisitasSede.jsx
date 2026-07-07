@@ -2,9 +2,11 @@ import { Fragment, useState } from 'react'
 import useEntidad from '../hooks/useEntidad'
 import Flecha from '../../components/Flecha'
 import EstadoFocalizacion from '../../components/EstadoFocalizacion'
+import EncabezadoOrdenable from '../../components/EncabezadoOrdenable'
 import { formatearFecha } from '../../utils/formato'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
-import { idsDeLista } from '../../utils/proyectos'
+import { abreviaturaProyecto, idsDeLista } from '../../utils/proyectos'
+import { colorPorId } from '../../utils/colores'
 
 // Agrupada por sede (no una fila plana por visita): cada sede muestra
 // cuántas visitas tiene por proyecto ("Escuela Nueva: 3 visitas"), y al
@@ -25,6 +27,11 @@ export default function VisitasSede() {
   const [padrinoId, setPadrinoId] = useState('')
   const [sedeAbierta, setSedeAbierta] = useState(null)
   const [proyectoAbierto, setProyectoAbierto] = useState(null)
+  const [orden, setOrden] = useState({ columna: 'sede', asc: true })
+
+  function ordenarPor(columna) {
+    setOrden((actual) => (actual.columna === columna ? { columna, asc: !actual.asc } : { columna, asc: true }))
+  }
 
   const cargando = focalizacion.cargando || metas.cargando || convenios.cargando || proyectos.cargando || usuarios.cargando
   if (cargando) return <Cargando />
@@ -70,9 +77,7 @@ export default function VisitasSede() {
     if (!sedesMap.has(clave)) sedesMap.set(clave, { clave, municipio: f.municipio, institucion: f.institucion, sede: f.sede, visitas: [] })
     sedesMap.get(clave).visitas.push(f)
   })
-  const sedes = Array.from(sedesMap.values()).sort((a, b) =>
-    a.municipio.localeCompare(b.municipio) || a.institucion.localeCompare(b.institucion) || a.sede.localeCompare(b.sede)
-  )
+  const sedesSinOrdenar = Array.from(sedesMap.values())
 
   // Dentro de una sede, los proyectos en el orden fijo del catálogo (1-7),
   // no en el orden en que se insertaron sus visitas.
@@ -86,6 +91,39 @@ export default function VisitasSede() {
       .filter((p) => porProyecto.has(String(p.id)))
       .map((p) => ({ proyecto: p, visitas: porProyecto.get(String(p.id)) }))
   }
+
+  // Columnas de la tabla principal: solo los proyectos que efectivamente
+  // tienen visitas entre las sedes filtradas (si hay filtro de proyecto,
+  // queda solo ese), en el orden fijo del catálogo — para que el conteo
+  // por proyecto se vea de una sin tener que desplegar cada sede.
+  const proyectosConVisitas = proyectos.datos.filter((p) =>
+    filtradas.some((f) => f.proyectoIdDeLaVisita === String(p.id))
+  )
+
+  function conteoPorProyecto(sedeItem) {
+    const mapa = {}
+    sedeItem.visitas.forEach((v) => {
+      mapa[v.proyectoIdDeLaVisita] = (mapa[v.proyectoIdDeLaVisita] || 0) + 1
+    })
+    return mapa
+  }
+
+  const totalColumnas = 3 + proyectosConVisitas.length
+
+  // El orden se aplica sobre `sedesSinOrdenar`, que ya viene de `filtradas`
+  // (proyecto/municipio/padrino aplicados) — nunca sobre datos sin filtrar.
+  const sedes = [...sedesSinOrdenar].sort((a, b) => {
+    let cmp
+    if (orden.columna === 'sede') {
+      cmp = `${a.municipio} - ${a.institucion} - ${a.sede}`.localeCompare(`${b.municipio} - ${b.institucion} - ${b.sede}`)
+    } else if (orden.columna === 'total') {
+      cmp = a.visitas.length - b.visitas.length
+    } else {
+      const idProyecto = orden.columna.replace('proy_', '')
+      cmp = (conteoPorProyecto(a)[idProyecto] || 0) - (conteoPorProyecto(b)[idProyecto] || 0)
+    }
+    return orden.asc ? cmp : -cmp
+  })
 
   function abrirSede(clave) {
     setSedeAbierta((actual) => (actual === clave ? null : clave))
@@ -137,14 +175,29 @@ export default function VisitasSede() {
             <thead>
               <tr>
                 <th className="celda-flecha"></th>
-                <th>Sede</th>
-                <th className="numero">Visitas</th>
+                <EncabezadoOrdenable columna="sede" orden={orden} onOrdenar={ordenarPor}>Sede</EncabezadoOrdenable>
+                {proyectosConVisitas.map((p) => (
+                  <EncabezadoOrdenable
+                    key={p.id}
+                    columna={`proy_${p.id}`}
+                    orden={orden}
+                    onOrdenar={ordenarPor}
+                    numero
+                    title={p.nombre}
+                    className="celda-proyecto-abrev"
+                    style={{ '--acento': colorPorId(p.id) }}
+                  >
+                    {abreviaturaProyecto(p.nombre)}
+                  </EncabezadoOrdenable>
+                ))}
+                <EncabezadoOrdenable columna="total" orden={orden} onOrdenar={ordenarPor} numero>Total</EncabezadoOrdenable>
               </tr>
             </thead>
             <tbody>
               {sedes.map((sedeItem) => {
                 const abierta = sedeAbierta === sedeItem.clave
                 const gruposProyecto = proyectosDeSede(sedeItem)
+                const conteo = conteoPorProyecto(sedeItem)
 
                 return (
                   <Fragment key={sedeItem.clave}>
@@ -154,11 +207,21 @@ export default function VisitasSede() {
                     >
                       <td className="celda-flecha"><Flecha abierta={abierta} /></td>
                       <td>{sedeItem.municipio} - {sedeItem.institucion} - {sedeItem.sede}</td>
+                      {proyectosConVisitas.map((p) => {
+                        const cantidad = conteo[String(p.id)] || 0
+                        return (
+                          <td key={p.id} className="numero celda-proyecto-abrev">
+                            {cantidad > 0
+                              ? <span style={{ color: colorPorId(p.id), fontWeight: 700 }}>{cantidad}</span>
+                              : <span className="celda-vacia">—</span>}
+                          </td>
+                        )
+                      })}
                       <td className="numero">{sedeItem.visitas.length}</td>
                     </tr>
                     {abierta && (
                       <tr className="fila-panel">
-                        <td colSpan={3}>
+                        <td colSpan={totalColumnas}>
                           <div className="panel-acordeon">
                             <div className="tabla-envoltura">
                               <table className="tabla">

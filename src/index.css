@@ -543,6 +543,23 @@ input::placeholder {
   width: 2.5rem;
 }
 
+/* Columnas angostas de conteo por proyecto (p.ej. Visitas por sede):
+   encabezado con la abreviatura acentuada del color categórico del
+   proyecto (colorPorId), celdas centradas y compactas. */
+.celda-proyecto-abrev {
+  width: 3.2rem;
+  text-align: center !important;
+}
+
+.tabla thead .celda-proyecto-abrev {
+  color: var(--acento, var(--tinta-3));
+  border-bottom: 2px solid var(--acento, transparent);
+}
+
+.celda-vacia {
+  color: var(--tinta-suave);
+}
+
 .tabla .celda-acciones {
   text-align: right;
   white-space: nowrap;
