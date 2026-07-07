@@ -500,6 +500,20 @@ input::placeholder {
   white-space: nowrap;
 }
 
+.th-ordenable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-ordenable:hover {
+  color: var(--aguamarina-oscuro);
+}
+
+.th-ordenable-flecha {
+  color: var(--aguamarina-oscuro);
+  font-size: 0.65em;
+}
+
 .tabla td {
   padding: 0.55rem 0.9rem;
   border-top: 1px solid var(--borde-suave);

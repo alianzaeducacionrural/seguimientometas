@@ -9,6 +9,21 @@ import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import { totalesDe, conContexto } from '../../utils/cargaPadrino'
 
+// Encabezado clicable: alterna la columna de orden (o invierte la
+// dirección si ya era la activa) y muestra una flecha en la que está activa.
+function EncabezadoOrdenable({ columna, orden, onOrdenar, numero, children }) {
+  const activo = orden.columna === columna
+  return (
+    <th
+      className={`th-ordenable${numero ? ' numero' : ''}`}
+      onClick={() => onOrdenar(columna)}
+    >
+      {children}
+      {activo && <span className="th-ordenable-flecha"> {orden.asc ? '▲' : '▼'}</span>}
+    </th>
+  )
+}
+
 export default function ActividadesPadrino() {
   const usuarios = useEntidad('usuarios')
   const convenios = useEntidad('convenios')
@@ -18,6 +33,11 @@ export default function ActividadesPadrino() {
   const asignaciones = useEntidad('asignaciones_sin_focalizacion')
 
   const [abiertoId, setAbiertoId] = useState(null)
+  const [orden, setOrden] = useState({ columna: 'nombre', asc: true })
+
+  function ordenarPor(columna) {
+    setOrden((actual) => (actual.columna === columna ? { columna, asc: !actual.asc } : { columna, asc: true }))
+  }
 
   const cargando = usuarios.cargando || convenios.cargando || proyectos.cargando || metas.cargando
     || focalizacion.cargando || asignaciones.cargando
@@ -43,6 +63,17 @@ export default function ActividadesPadrino() {
   const focalizacionConContexto = focalizacion.datos.map((f) => conContexto(f, metaPorId, convenioPorId, proyectoPorId))
   const asignacionesConContexto = asignaciones.datos.map((a) => conContexto(a, metaPorId, convenioPorId, proyectoPorId))
 
+  const filas = padrinos.map((padrino) => ({
+    padrino,
+    ...totalesDe(padrino.id, focalizacion.datos, asignaciones.datos, metaPorId),
+  }))
+  const filasOrdenadas = [...filas].sort((a, b) => {
+    const cmp = orden.columna === 'nombre'
+      ? a.padrino.nombre.localeCompare(b.padrino.nombre)
+      : a[orden.columna] - b[orden.columna]
+    return orden.asc ? cmp : -cmp
+  })
+
   return (
     <section className="vista">
       <h2>Actividades por padrino</h2>
@@ -52,15 +83,14 @@ export default function ActividadesPadrino() {
           <thead>
             <tr>
               <th className="celda-flecha"></th>
-              <th>Padrino</th>
-              <th className="numero">Asignadas</th>
-              <th className="numero">Realizadas</th>
-              <th className="numero">Pendientes</th>
+              <EncabezadoOrdenable columna="nombre" orden={orden} onOrdenar={ordenarPor}>Padrino</EncabezadoOrdenable>
+              <EncabezadoOrdenable columna="asignadas" orden={orden} onOrdenar={ordenarPor} numero>Asignadas</EncabezadoOrdenable>
+              <EncabezadoOrdenable columna="realizadas" orden={orden} onOrdenar={ordenarPor} numero>Realizadas</EncabezadoOrdenable>
+              <EncabezadoOrdenable columna="pendientes" orden={orden} onOrdenar={ordenarPor} numero>Pendientes</EncabezadoOrdenable>
             </tr>
           </thead>
           <tbody>
-            {padrinos.map((padrino) => {
-              const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion.datos, asignaciones.datos)
+            {filasOrdenadas.map(({ padrino, asignadas, realizadas, pendientes }) => {
               const abierto = String(abiertoId) === String(padrino.id)
 
               const pendientesFocalizacion = focalizacionConContexto.filter(
@@ -131,6 +161,11 @@ export default function ActividadesPadrino() {
                                         key={item.id}
                                         item={item}
                                         padrinos={padrinos}
+                                        realizadas={focalizacion.datos.filter(
+                                          (f) => String(f.meta_id) === String(item.meta_id)
+                                            && String(f.padrino_id) === String(item.padrino_id)
+                                            && f.estado === 'realizada'
+                                        ).length}
                                         onReasignar={(id, nuevoPadrinoId) => asignaciones.editarItem(id, { padrino_id: nuevoPadrinoId })}
                                       />
                                     ))}

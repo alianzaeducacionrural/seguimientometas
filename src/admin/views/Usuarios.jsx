@@ -6,6 +6,7 @@ import EnlaceMagico from '../components/EnlaceMagico'
 import { importarPadrinos } from '../utils/api'
 import { AvisoError, Cargando } from '../../components/Estado'
 import Avatar from '../../components/Avatar'
+import { nombresProyectosDe } from '../../utils/proyectos'
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -75,11 +76,7 @@ export default function Usuarios() {
       tipo: 'multiselect',
       opciones: proyectos.datos.map((p) => ({ value: String(p.id), label: p.nombre })),
       mostrarSi: (form) => form.rol === 'lider',
-      columna: (fila) => String(fila.proyectos_ids)
-        .split(',')
-        .map((id) => proyectos.datos.find((p) => String(p.id) === id.trim())?.nombre)
-        .filter(Boolean)
-        .join(', '),
+      columna: (fila) => nombresProyectosDe(fila.proyectos_ids, proyectos.datos).join(', '),
     },
   ]
 

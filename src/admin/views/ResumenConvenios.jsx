@@ -2,6 +2,7 @@ import useEntidad from '../hooks/useEntidad'
 import estilos from '../../components/TarjetaResumen.module.css'
 import { colorAvance, colorPorId } from '../../utils/colores'
 import { ejecutadoDe } from '../../utils/avance'
+import { nombresProyectosDe } from '../../utils/proyectos'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 
 export default function ResumenConvenios() {
@@ -10,9 +11,9 @@ export default function ResumenConvenios() {
   const proyectos = useEntidad('proyectos')
   const metas = useEntidad('metas')
   const focalizacion = useEntidad('focalizacion')
-  const asignaciones = useEntidad('asignaciones_sin_focalizacion')
+  const avancesManuales = useEntidad('avances_manuales')
 
-  if (convenios.cargando || aliados.cargando || proyectos.cargando || metas.cargando || focalizacion.cargando || asignaciones.cargando) return <Cargando />
+  if (convenios.cargando || aliados.cargando || proyectos.cargando || metas.cargando || focalizacion.cargando || avancesManuales.cargando) return <Cargando />
   if (convenios.error) return <AvisoError>Error: {convenios.error}</AvisoError>
   if (metas.error) return <AvisoError>Error: {metas.error}</AvisoError>
 
@@ -30,11 +31,7 @@ export default function ResumenConvenios() {
       <h2>Avance por convenio</h2>
       {convenios.datos.map((convenio) => {
         const aliado = aliados.datos.find((a) => String(a.id) === String(convenio.aliado_id))
-        const nombresProyectos = String(convenio.proyectos_ids)
-          .split(',')
-          .map((id) => proyectos.datos.find((p) => String(p.id) === id.trim())?.nombre)
-          .filter(Boolean)
-          .join(', ')
+        const nombresProyectos = nombresProyectosDe(convenio.proyectos_ids, proyectos.datos).join(', ')
         const metasDelConvenio = metas.datos.filter((m) => String(m.convenio_id) === String(convenio.id))
         const color = colorPorId(convenio.id)
 
@@ -65,7 +62,7 @@ export default function ResumenConvenios() {
                 <tbody>
                   {metasDelConvenio.map((meta) => {
                     const metaNum = Number(meta.cantidad_meta) || 0
-                    const ejecutado = ejecutadoDe(meta, focalizacion.datos, asignaciones.datos)
+                    const ejecutado = ejecutadoDe(meta, focalizacion.datos, avancesManuales.datos)
                     const pct = metaNum > 0 ? Math.round((ejecutado / metaNum) * 100) : 0
                     const pctBarra = Math.min(pct, 100)
                     const proyectoMeta = proyectos.datos.find((p) => String(p.id) === String(meta.proyecto_id))

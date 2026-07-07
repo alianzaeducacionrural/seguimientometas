@@ -1,14 +1,75 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import TablaCrud from './TablaCrud'
+import Modal from '../../components/Modal'
 import { AvisoError, Cargando } from '../../components/Estado'
 import { ejecutadoDe } from '../../utils/avance'
+import { hoy } from '../../utils/formato'
 
 const TIPOS_META = [
   { value: 'visita_focalizada', label: 'Visita focalizada' },
   { value: 'visita_sin_focalizar', label: 'Visita sin focalizar' },
-  { value: 'otro_indicador', label: 'Otro indicador' },
+  { value: 'otro_indicador', label: 'Manual' },
 ]
+
+// Una meta "Manual" (otro_indicador, p.ej. Microcentros Rurales) no se
+// edita con una cifra fija: se le van agregando incrementos con fecha
+// (avances_manuales), igual que las visitas se van registrando una por
+// una — el ejecutado de la meta es la suma de esos registros.
+function BotonRegistrarAvance({ meta, onRegistrar }) {
+  const [abierto, setAbierto] = useState(false)
+  const [cantidad, setCantidad] = useState('')
+  const [fecha, setFecha] = useState(hoy())
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState(null)
+
+  function abrir() {
+    setCantidad('')
+    setFecha(hoy())
+    setError(null)
+    setAbierto(true)
+  }
+
+  async function guardar(e) {
+    e.preventDefault()
+    setGuardando(true)
+    setError(null)
+    try {
+      await onRegistrar({ meta_id: meta.id, cantidad, fecha })
+      setAbierto(false)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <>
+      <button type="button" onClick={abrir}>Registrar avance →</button>
+      <Modal abierto={abierto} onCerrar={() => setAbierto(false)} titulo={`Registrar avance: ${meta.descripcion}`}>
+        <form onSubmit={guardar} className="formulario-modal">
+          <label className="campo">
+            <span>Cantidad</span>
+            <input type="number" min="0" required value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
+          </label>
+          <label className="campo">
+            <span>Fecha</span>
+            <input type="date" required value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </label>
+          {error && <AvisoError>{error}</AvisoError>}
+          <div className="modal-pie">
+            <button type="button" onClick={() => setAbierto(false)}>Cancelar</button>
+            <button type="submit" className="btn-primario" disabled={guardando}>
+              {guardando ? 'Guardando…' : 'Registrar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
+  )
+}
 
 // Panel de acordeón de un convenio: sus metas/actividades con CRUD completo.
 // En el alta primero se elige el proyecto (solo los asociados al convenio) y
@@ -18,10 +79,10 @@ export default function MetasDeConvenio({ convenio }) {
   const actividades = useEntidad('actividades')
   const metas = useEntidad('metas')
   const focalizacion = useEntidad('focalizacion')
-  const asignaciones = useEntidad('asignaciones_sin_focalizacion')
+  const avancesManuales = useEntidad('avances_manuales')
 
   const cargando = proyectos.cargando || actividades.cargando || metas.cargando
-    || focalizacion.cargando || asignaciones.cargando
+    || focalizacion.cargando || avancesManuales.cargando
   if (cargando) return <Cargando />
   if (metas.error) return <AvisoError>Error: {metas.error}</AvisoError>
 
@@ -64,12 +125,11 @@ export default function MetasDeConvenio({ convenio }) {
       clave: 'cantidad_realizada',
       label: 'Cantidad realizada',
       tipo: 'number',
-      mostrarSi: (form) => form.tipo === 'otro_indicador',
-      // Para visita_focalizada/visita_sin_focalizar el ejecutado se calcula
-      // de la focalización/asignaciones (igual que en Avance por convenio),
-      // no del campo crudo de la meta, que solo se llena a mano para
-      // otro_indicador.
-      columna: (fila) => ejecutadoDe(fila, focalizacion.datos, asignaciones.datos),
+      // Ya no se edita a mano en ningún tipo: para visitas se cuenta desde
+      // focalización (Registrar visita) y para Manual desde avances_manuales
+      // (Registrar avance) — ver ejecutadoDe en utils/avance.js.
+      mostrarSi: () => false,
+      columna: (fila) => ejecutadoDe(fila, focalizacion.datos, avancesManuales.datos),
     },
   ]
 
@@ -84,6 +144,7 @@ export default function MetasDeConvenio({ convenio }) {
         render: (fila) => {
           if (fila.tipo === 'visita_focalizada') return <Link to={`/admin/metas/${fila.id}`}>Focalización →</Link>
           if (fila.tipo === 'visita_sin_focalizar') return <Link to={`/admin/metas/${fila.id}/asignaciones`}>Asignaciones →</Link>
+          if (fila.tipo === 'otro_indicador') return <BotonRegistrarAvance meta={fila} onRegistrar={avancesManuales.crearItem} />
           return null
         },
       }]}

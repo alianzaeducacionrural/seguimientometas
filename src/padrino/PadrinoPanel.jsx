@@ -32,9 +32,14 @@ export default function PadrinoPanel() {
   if (error) return <div className={estilos.envoltorio}><AvisoError>{error}</AvisoError></div>
 
   const { usuario, focalizacion, asignaciones } = datos
-  const totalAsignadas = focalizacion.length + asignaciones.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
+  // Una visita sin focalizar registrada (Registrar visita, en el admin) es
+  // una fila de `focalizacion` que nace directo en "realizada": no estaba
+  // "asignada" de antemano, así que no cuenta ahí (esa cuota ya la aporta
+  // la asignación), pero sí cuenta en "realizadas" — igual que totalesDe()
+  // en cargaPadrino.js.
+  const focalizacionPreasignada = focalizacion.filter((f) => f.meta_tipo !== 'visita_sin_focalizar')
+  const totalAsignadas = focalizacionPreasignada.length + asignaciones.reduce((s, a) => s + (Number(a.cantidad_asignada) || 0), 0)
   const totalRealizadas = focalizacion.filter((f) => f.estado === 'realizada').length
-    + asignaciones.reduce((s, a) => s + (Number(a.cantidad_realizada) || 0), 0)
 
   const municipios = Array.from(new Set(focalizacion.map((f) => f.municipio).filter(Boolean))).sort()
   const focalizacionFiltrada = municipio ? focalizacion.filter((f) => f.municipio === municipio) : focalizacion
@@ -87,16 +92,19 @@ export default function PadrinoPanel() {
       {asignaciones.length === 0 ? (
         <Vacio>No tienes asignaciones sin focalizar.</Vacio>
       ) : (
-        asignaciones.map((a) => (
-          <div key={a.id} className={estilos.tarjeta}>
-            <h3>{a.convenio_nombre}</h3>
-            <p>{a.meta_descripcion}</p>
-            <div className={estilos.filaNumeros}>
-              <div className={estilos.numero}><span>{a.cantidad_asignada}</span><span>Asignadas</span></div>
-              <div className={estilos.numero}><span>{a.cantidad_realizada || 0}</span><span>Realizadas</span></div>
+        asignaciones.map((a) => {
+          const realizadas = focalizacion.filter((f) => String(f.meta_id) === String(a.meta_id) && f.estado === 'realizada').length
+          return (
+            <div key={a.id} className={estilos.tarjeta}>
+              <h3>{a.convenio_nombre}</h3>
+              <p>{a.meta_descripcion}</p>
+              <div className={estilos.filaNumeros}>
+                <div className={estilos.numero}><span>{a.cantidad_asignada}</span><span>Asignadas</span></div>
+                <div className={estilos.numero}><span>{realizadas}</span><span>Realizadas</span></div>
+              </div>
             </div>
-          </div>
-        ))
+          )
+        })
       )}
     </div>
     </>

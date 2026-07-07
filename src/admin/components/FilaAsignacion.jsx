@@ -1,20 +1,19 @@
 import { useState } from 'react'
 
-// Cantidad asignada y cantidad realizada son editables inline; el botón
-// "Guardar" solo se habilita si algo cambió respecto a lo ya persistido,
-// para no disparar guardados innecesarios en cada tecla.
-export default function FilaAsignacion({ item, padrinoNombre, onGuardar, onEliminar }) {
+// Cantidad asignada (la cuota) es editable inline; cantidad realizada ya no
+// se escribe a mano — la calcula quien usa esta fila contando las visitas
+// registradas en `focalizacion` para esta meta+padrino (ver
+// PanelAsignacionesMeta), y llega aquí como `realizada` de solo lectura.
+export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuardar, onEliminar }) {
   const [asignada, setAsignada] = useState(item.cantidad_asignada)
-  const [realizada, setRealizada] = useState(item.cantidad_realizada || 0)
   const [guardando, setGuardando] = useState(false)
 
   const cambio = Number(asignada) !== Number(item.cantidad_asignada)
-    || Number(realizada) !== Number(item.cantidad_realizada || 0)
 
   async function guardar() {
     setGuardando(true)
     try {
-      await onGuardar(item.id, { cantidad_asignada: asignada, cantidad_realizada: realizada })
+      await onGuardar(item.id, { cantidad_asignada: asignada })
     } finally {
       setGuardando(false)
     }
@@ -26,9 +25,7 @@ export default function FilaAsignacion({ item, padrinoNombre, onGuardar, onElimi
       <td>
         <input type="number" min="0" value={asignada} onChange={(e) => setAsignada(e.target.value)} style={{ width: '5em' }} />
       </td>
-      <td>
-        <input type="number" min="0" value={realizada} onChange={(e) => setRealizada(e.target.value)} style={{ width: '5em' }} />
-      </td>
+      <td className="numero">{realizada}</td>
       <td className="celda-acciones">
         <button type="button" className="btn-primario" disabled={!cambio || guardando} onClick={guardar}>Guardar</button>{' '}
         <button

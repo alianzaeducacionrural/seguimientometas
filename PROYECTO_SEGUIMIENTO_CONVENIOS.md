@@ -76,15 +76,15 @@ Algunos convenios traen **focalización**: un listado específico de institucion
 | proyecto_id | texto | Proyecto del área al que corresponde la actividad (uno de los proyectos asociados al convenio) |
 | descripcion | texto | Ej: "Visitas de asesoría y acompañamiento", "Microcentros rurales", "Docentes capacitados" |
 | cantidad_meta | número | Meta numérica a cumplir |
-| tipo | texto | `visita_focalizada` / `visita_sin_focalizar` / `otro_indicador` |
+| tipo | texto | `visita_focalizada` / `visita_sin_focalizar` / `otro_indicador` (mostrado como "Manual" en la interfaz) |
 
-> Solo las metas de tipo `visita_focalizada` y `visita_sin_focalizar` tienen seguimiento por padrino. Las de tipo `otro_indicador` (microcentros, docentes capacitados, dotaciones, etc.) se registran en agregado directamente sobre la meta (campo `cantidad_realizada` a nivel de meta).
+> Ninguno de los 3 tipos guarda una cifra de ejecutado editada a mano sobre la meta: `visita_focalizada` y `visita_sin_focalizar` se calculan contando filas de `focalizacion` en estado `realizada`; `otro_indicador`/Manual se calcula sumando los registros de `avances_manuales` (ver esa tabla más abajo).
 
 ### `focalizacion`
 | Columna | Tipo | Descripción |
 |---|---|---|
 | id | texto | Identificador único |
-| meta_id | texto | Meta de tipo `visita_focalizada` a la que pertenece |
+| meta_id | texto | Meta a la que pertenece — de tipo `visita_focalizada` (sede preasignada) o `visita_sin_focalizar` (visita registrada después de ocurrida, ver "Registrar visita") |
 | municipio | texto | Referenciado del catálogo Mun/IE/Sedes |
 | institucion | texto | Referenciado del catálogo |
 | sede | texto | Referenciado del catálogo |
@@ -93,14 +93,26 @@ Algunos convenios traen **focalización**: un listado específico de institucion
 | fecha_programada | fecha | Se llena cuando pasa a `programada` |
 | fecha_realizada | fecha | Se llena cuando pasa a `realizada` |
 
+> Una visita bajo una meta `visita_sin_focalizar` se registra directo en estado `realizada` (con "Registrar visita": se elige municipio/institución/sede/padrino/fecha) — no pasa por `pendiente`/`programada` porque se carga después de haber ocurrido. Al vivir en la misma hoja que las focalizadas, cuenta sola en el ejecutado de su meta y aparece en Visitas por sede sin pasos extra.
+
 ### `asignaciones_sin_focalizacion`
 | Columna | Tipo | Descripción |
 |---|---|---|
 | id | texto | Identificador único |
 | meta_id | texto | Meta de tipo `visita_sin_focalizar` a la que pertenece |
 | padrino_id | texto | Usuario asignado — un padrino o un líder |
-| cantidad_asignada | número | Visitas asignadas a ese padrino dentro de esta meta |
-| cantidad_realizada | número | Visitas ya marcadas como realizadas |
+| cantidad_asignada | número | Cuota de visitas asignada a ese padrino dentro de esta meta |
+| cantidad_realizada | número | Columna heredada, ya no se lee ni se escribe — el realizado real se cuenta desde `focalizacion` (ver arriba) |
+
+### `avances_manuales`
+| Columna | Tipo | Descripción |
+|---|---|---|
+| id | texto | Identificador único |
+| meta_id | texto | Meta de tipo `otro_indicador`/Manual a la que pertenece |
+| cantidad | número | Incremento registrado (ej. +5) |
+| fecha | fecha | Fecha del registro |
+
+> Cada "Registrar avance" agrega una fila acá en vez de sobrescribir una cifra única sobre la meta; el ejecutado de la meta es la suma de estos registros.
 
 ### `usuarios`
 | Columna | Tipo | Descripción |
@@ -125,8 +137,9 @@ El GAS lo lee directamente vía `SpreadsheetApp.openById()` para poblar los sele
 - `proyecto` 1:N `usuarios` (líderes)
 - `convenio` N:M `proyecto` (vía `convenio_proyectos`)
 - `convenio` 1:N `metas`
-- `meta` (focalizada) 1:N `focalizacion`
-- `meta` (sin focalizar) 1:N `asignaciones_sin_focalizacion`
+- `meta` (focalizada o sin focalizar) 1:N `focalizacion`
+- `meta` (sin focalizar) 1:N `asignaciones_sin_focalizacion` (la cuota, aparte del registro de visitas)
+- `meta` (Manual/otro_indicador) 1:N `avances_manuales`
 - `usuarios` (padrino o líder) 1:N `focalizacion` / `asignaciones_sin_focalizacion`
 
 ---
@@ -145,10 +158,11 @@ El GAS lo lee directamente vía `SpreadsheetApp.openById()` para poblar los sele
 
 1. **Tabla de convenios** — proyecto(s), aliado, vigencia, y cada meta con cantidad meta / realizado / % de cumplimiento.
 2. **Carga de padrinos** — por padrino: visitas asignadas y realizadas, desglosadas por proyecto/convenio. Sirve para nivelar el trabajo del equipo.
-3. **Visitas por sede** — por institución/sede: realizadas, programadas, total proyectado (realizadas + programadas) vs. meta, con fecha y padrino asignado. Filtros: proyecto, municipio, padrino.
-4. **Panel admin** — CRUD de convenios/metas/aliados, asignación y reasignación de focalización y visitas sin focalizar, programación de fechas, marcar visitas como realizadas.
-5. **Vista líder** — sus proyectos asociados (uno o varios) en 3 pestañas: seguimiento a metas, vista de padrinos (lectura) y focalización (acá gestiona: reasignar padrino y cambiar estado de la visita).
-6. **Vista padrino** — solo sus propias asignaciones y su estado.
+3. **Focalización** — gestiona toda la focalización y las visitas sin focalizar sin entrar a la tabla de convenios: filtro por proyecto, acordeón por convenio con el alta/reasignación/cambio de estado de cada una de sus metas.
+4. **Visitas por sede** — agrupada por sede: cuántas visitas tiene por proyecto, y al elegir un proyecto el detalle (fecha, padrino, estado) de esas visitas puntuales. Filtros: proyecto, municipio, padrino.
+5. **Panel admin** — CRUD de convenios/metas/aliados, asignación y reasignación de focalización y visitas sin focalizar, programación de fechas, marcar visitas como realizadas.
+6. **Vista líder** — sus proyectos asociados (uno o varios) en 3 pestañas: seguimiento a metas, vista de padrinos (lectura) y focalización (acá gestiona: reasignar padrino y cambiar estado de la visita).
+7. **Vista padrino** — solo sus propias asignaciones y su estado.
 
 ---
 

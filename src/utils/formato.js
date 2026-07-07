@@ -13,3 +13,8 @@ export function formatearFecha(valor) {
   const [anio, mes, dia] = iso.split('-')
   return `${dia}/${mes}/${anio}`
 }
+
+// Fecha de hoy en formato YYYY-MM-DD, para precargar <input type="date">.
+export function hoy() {
+  return new Date().toISOString().slice(0, 10)
+}

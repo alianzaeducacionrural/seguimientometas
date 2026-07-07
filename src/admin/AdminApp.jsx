@@ -3,6 +3,7 @@ import Proyectos from './views/Proyectos'
 import Aliados from './views/Aliados'
 import Usuarios from './views/Usuarios'
 import Convenios from './views/Convenios'
+import Focalizacion from './views/Focalizacion'
 import FocalizacionMeta from './views/FocalizacionMeta'
 import AsignacionesMeta from './views/AsignacionesMeta'
 import ResumenConvenios from './views/ResumenConvenios'
@@ -15,6 +16,7 @@ import {
   IconoCarga,
   IconoCatalogo,
   IconoConvenios,
+  IconoFocalizacion,
   IconoProyectos,
   IconoResumen,
   IconoUsuarios,
@@ -30,6 +32,7 @@ const GESTION = [
   { to: '/admin/aliados', label: 'Aliados', Icono: IconoAliados },
   { to: '/admin/usuarios', label: 'Usuarios', Icono: IconoUsuarios },
   { to: '/admin/convenios', label: 'Convenios', Icono: IconoConvenios },
+  { to: '/admin/focalizacion', label: 'Focalización', Icono: IconoFocalizacion },
 ]
 
 const REPORTES = [
@@ -82,6 +85,7 @@ export default function AdminApp() {
             <Route path="aliados" element={<Aliados />} />
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="convenios" element={<Convenios />} />
+            <Route path="focalizacion" element={<Focalizacion />} />
             <Route path="metas/:metaId" element={<FocalizacionMeta />} />
             <Route path="metas/:metaId/asignaciones" element={<AsignacionesMeta />} />
             <Route path="resumen" element={<ResumenConvenios />} />

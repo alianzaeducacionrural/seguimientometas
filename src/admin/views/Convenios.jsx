@@ -3,6 +3,7 @@ import useEntidad from '../hooks/useEntidad'
 import TablaCrud from '../components/TablaCrud'
 import MetasDeConvenio from '../components/MetasDeConvenio'
 import { AvisoError, Cargando } from '../../components/Estado'
+import { nombresProyectosDe } from '../../utils/proyectos'
 
 const ESTADOS = [
   { value: 'Activo', label: 'Activo' },
@@ -38,11 +39,7 @@ export default function Convenios() {
       label: 'Proyectos asociados',
       tipo: 'multiselect',
       opciones: proyectos.datos.map((p) => ({ value: String(p.id), label: p.nombre })),
-      columna: (fila) => String(fila.proyectos_ids)
-        .split(',')
-        .map((id) => proyectos.datos.find((p) => String(p.id) === id.trim())?.nombre)
-        .filter(Boolean)
-        .join(', '),
+      columna: (fila) => nombresProyectosDe(fila.proyectos_ids, proyectos.datos).join(', '),
     },
   ]
 

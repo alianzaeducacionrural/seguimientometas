@@ -5,6 +5,7 @@ import { colorAvance, colorPorId } from '../utils/colores'
 import { ejecutadoDe } from '../utils/avance'
 import { totalesDe, conContexto } from '../utils/cargaPadrino'
 import { accionesEstadoFocalizacion } from '../utils/estadoFocalizacion'
+import { idsDeLista } from '../utils/proyectos'
 import estilos from '../components/TarjetaResumen.module.css'
 import { AvisoError, Cargando, Vacio } from '../components/Estado'
 import MarcaLogo from '../components/MarcaLogo'
@@ -34,6 +35,7 @@ export default function LiderPanel() {
   const [error, setError] = useState(token ? null : 'Falta el token en el enlace.')
   const [cargando, setCargando] = useState(Boolean(token))
   const [todosProyectos, setTodosProyectos] = useState([])
+  const [avancesManuales, setAvancesManuales] = useState([])
   const [pestana, setPestana] = useState('metas')
   const [proyectoId, setProyectoId] = useState('')
   const [abiertoId, setAbiertoId] = useState(null)
@@ -53,6 +55,8 @@ export default function LiderPanel() {
   // mostrar el nombre del proyecto de una meta aunque no sea uno de los
   // suyos (un convenio puede abarcar proyectos que él no lidera).
   useEffect(() => { apiGet('proyectos').then((r) => setTodosProyectos(r.datos)).catch(() => {}) }, [])
+  // Para calcular el ejecutado de metas Manual en la pestaña de metas.
+  useEffect(() => { apiGet('avances_manuales').then((r) => setAvancesManuales(r.datos)).catch(() => {}) }, [])
 
   if (cargando) return <Envoltorio><Cargando /></Envoltorio>
   if (error) return <Envoltorio><AvisoError>{error}</AvisoError></Envoltorio>
@@ -75,7 +79,7 @@ export default function LiderPanel() {
   // convenios por proyectos_ids y, dentro de ellos, metas por proyecto_id
   // (cayendo al convenio ya filtrado si la meta es vieja y no lo tiene).
   const conveniosFiltrados = proyectoId
-    ? convenios.filter((c) => String(c.proyectos_ids).split(',').map((v) => v.trim()).includes(proyectoId))
+    ? convenios.filter((c) => idsDeLista(c.proyectos_ids).includes(proyectoId))
     : convenios
   const convenioIdsFiltrados = new Set(conveniosFiltrados.map((c) => String(c.id)))
   const metasFiltradas = metas.filter((m) => {
@@ -103,7 +107,7 @@ export default function LiderPanel() {
   const municipios = Array.from(new Set(focalizacionPorProyecto.map((f) => f.municipio).filter(Boolean))).sort()
 
   const padrinosConCargaTotal = padrinos.filter(
-    (p) => totalesDe(p.id, focalizacionFiltrada, asignacionesPorProyecto).asignadas > 0
+    (p) => totalesDe(p.id, focalizacionFiltrada, asignacionesPorProyecto, metaPorId).asignadas > 0
   )
   const padrinosConCarga = padrinoId
     ? padrinosConCargaTotal.filter((p) => String(p.id) === padrinoId)
@@ -136,7 +140,7 @@ export default function LiderPanel() {
       </div>
 
       {pestana === 'metas' && (
-        <SeguimientoMetas convenios={conveniosFiltrados} metas={metasFiltradas} aliados={aliados} focalizacion={focalizacion} asignaciones={asignaciones} />
+        <SeguimientoMetas convenios={conveniosFiltrados} metas={metasFiltradas} aliados={aliados} focalizacion={focalizacion} avancesManuales={avancesManuales} />
       )}
 
       {pestana === 'padrinos' && (
@@ -144,6 +148,7 @@ export default function LiderPanel() {
           padrinos={padrinosConCargaTotal}
           focalizacion={focalizacionFiltrada}
           asignaciones={asignacionesPorProyecto}
+          metaPorId={metaPorId}
           municipio={municipio}
           setMunicipio={setMunicipio}
           municipios={municipios}
@@ -156,6 +161,7 @@ export default function LiderPanel() {
           padrinosConCarga={padrinosConCarga}
           focalizacion={focalizacionFiltrada}
           asignaciones={asignacionesPorProyecto}
+          metaPorId={metaPorId}
           municipio={municipio}
           setMunicipio={setMunicipio}
           municipios={municipios}
@@ -175,7 +181,7 @@ export default function LiderPanel() {
   )
 }
 
-function SeguimientoMetas({ convenios, metas, aliados, focalizacion, asignaciones }) {
+function SeguimientoMetas({ convenios, metas, aliados, focalizacion, avancesManuales }) {
   return (
     <>
       <h2>Avance de tus convenios</h2>
@@ -207,7 +213,7 @@ function SeguimientoMetas({ convenios, metas, aliados, focalizacion, asignacione
                 <tbody>
                   {metasDelConvenio.map((meta) => {
                     const metaNum = Number(meta.cantidad_meta) || 0
-                    const ejecutado = ejecutadoDe(meta, focalizacion, asignaciones)
+                    const ejecutado = ejecutadoDe(meta, focalizacion, avancesManuales)
                     const pct = metaNum > 0 ? Math.round((ejecutado / metaNum) * 100) : 0
                     return (
                       <tr key={meta.id}>
@@ -239,7 +245,7 @@ function SeguimientoMetas({ convenios, metas, aliados, focalizacion, asignacione
 // Vista rápida de solo lectura para nivelar la carga del equipo: una fila
 // por padrino con sus cifras, sin acordeón — para actuar sobre una visita
 // puntual está la pestaña Focalización.
-function VistaPadrinos({ padrinos, focalizacion, asignaciones, municipio, setMunicipio, municipios }) {
+function VistaPadrinos({ padrinos, focalizacion, asignaciones, metaPorId, municipio, setMunicipio, municipios }) {
   return (
     <>
       <h2>Carga de tus padrinos</h2>
@@ -272,7 +278,7 @@ function VistaPadrinos({ padrinos, focalizacion, asignaciones, municipio, setMun
               </thead>
               <tbody>
                 {padrinos.map((padrino) => {
-                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones)
+                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones, metaPorId)
                   return (
                     <tr key={padrino.id}>
                       <td>
@@ -301,7 +307,7 @@ function VistaPadrinos({ padrinos, focalizacion, asignaciones, municipio, setMun
 // son editables (reasignar padrino, cambiar estado) porque acá el líder sí
 // gestiona la focalización de su equipo.
 function TablaFocalizacion({
-  padrinos, padrinosConCarga, focalizacion, asignaciones, municipio, setMunicipio, municipios,
+  padrinos, padrinosConCarga, focalizacion, asignaciones, metaPorId, municipio, setMunicipio, municipios,
   padrinoId, setPadrinoId, padrinosParaFiltro, abiertoId, setAbiertoId,
   onReasignarFocalizacion, onProgramar, onMarcarRealizada, onVolverPendiente, onReasignarAsignacion,
 }) {
@@ -345,7 +351,7 @@ function TablaFocalizacion({
               </thead>
               <tbody>
                 {padrinosConCarga.map((padrino) => {
-                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones)
+                  const { asignadas, realizadas, pendientes } = totalesDe(padrino.id, focalizacion, asignaciones, metaPorId)
                   const abierto = String(abiertoId) === String(padrino.id)
 
                   const pendientesFocalizacion = focalizacion.filter(
@@ -416,6 +422,11 @@ function TablaFocalizacion({
                                             key={item.id}
                                             item={item}
                                             padrinos={padrinos}
+                                            realizadas={focalizacion.filter(
+                                              (f) => String(f.meta_id) === String(item.meta_id)
+                                                && String(f.padrino_id) === String(item.padrino_id)
+                                                && f.estado === 'realizada'
+                                            ).length}
                                             onReasignar={onReasignarAsignacion}
                                           />
                                         ))}

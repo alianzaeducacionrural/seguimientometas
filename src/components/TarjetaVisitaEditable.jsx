@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import TarjetaVisitaFocalizacion from './TarjetaVisitaFocalizacion'
 import Modal from './Modal'
-import { formatearFecha } from '../utils/formato'
-
-const HOY = () => new Date().toISOString().slice(0, 10)
+import { formatearFecha, hoy } from '../utils/formato'
 
 // Una visita focalizada editable: envuelve la tarjeta de solo lectura
 // compartida y le agrega los botones de Reasignar/Cambiar estado (cada uno
@@ -18,7 +16,7 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
   const [guardando, setGuardando] = useState(false)
 
   const [modalEstadoAbierto, setModalEstadoAbierto] = useState(false)
-  const [fecha, setFecha] = useState(HOY())
+  const [fecha, setFecha] = useState(hoy())
   const [guardandoEstado, setGuardandoEstado] = useState(false)
 
   function abrirModal() {
@@ -37,7 +35,7 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
   }
 
   function abrirModalEstado() {
-    setFecha(HOY())
+    setFecha(hoy())
     setModalEstadoAbierto(true)
   }
 

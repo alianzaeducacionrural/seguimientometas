@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import EstadoFocalizacion from '../../components/EstadoFocalizacion'
-import { formatearFecha } from '../../utils/formato'
-
-const HOY = () => new Date().toISOString().slice(0, 10)
+import { formatearFecha, hoy } from '../../utils/formato'
 
 // Una fila de focalización: reasignar padrino es inmediato; programar,
 // marcar realizada y volver a pendiente piden confirmación (fecha o
@@ -11,7 +9,7 @@ const HOY = () => new Date().toISOString().slice(0, 10)
 // Transiciones permitidas: pendiente → programada o directo a realizada;
 // programada → realizada o de vuelta a pendiente; realizada es terminal.
 export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar }) {
-  const [fecha, setFecha] = useState(HOY())
+  const [fecha, setFecha] = useState(hoy())
   const [guardando, setGuardando] = useState(false)
 
   async function ejecutar(accion, conFecha = true) {

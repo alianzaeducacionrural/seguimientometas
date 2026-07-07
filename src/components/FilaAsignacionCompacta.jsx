@@ -2,11 +2,14 @@ import { useState } from 'react'
 
 // Una cuota sin focalizar (sin sede fija), con su propio reasignar — no
 // tiene visitas individuales que listar, solo el agregado asignada/realizada.
+// `realizadas` viene calculado por quien la usa (contando las visitas
+// registradas en `focalizacion` para esta meta+padrino, ver
+// PanelAsignacionesMeta) — el campo crudo cantidad_realizada ya no se usa.
 // Se reutiliza en Actividades por padrino (admin) y en la pestaña de
 // Focalización del panel de líder.
-export default function FilaAsignacionCompacta({ item, padrinos, onReasignar }) {
+export default function FilaAsignacionCompacta({ item, padrinos, realizadas, onReasignar }) {
   const [guardando, setGuardando] = useState(false)
-  const pendiente = (Number(item.cantidad_asignada) || 0) - (Number(item.cantidad_realizada) || 0)
+  const pendiente = (Number(item.cantidad_asignada) || 0) - realizadas
 
   async function reasignar(nuevoPadrinoId) {
     setGuardando(true)
@@ -22,7 +25,7 @@ export default function FilaAsignacionCompacta({ item, padrinos, onReasignar }) 
       <td>{item.convenio_nombre}</td>
       <td>{item.meta_descripcion}</td>
       <td className="numero">{item.cantidad_asignada}</td>
-      <td className="numero">{item.cantidad_realizada || 0}</td>
+      <td className="numero">{realizadas}</td>
       <td className="numero">{pendiente}</td>
       <td>
         <select value={item.padrino_id || ''} disabled={guardando} onChange={(e) => reasignar(e.target.value)}>

@@ -11,6 +11,7 @@ const HOJAS = {
   METAS:                         'metas',
   FOCALIZACION:                  'focalizacion',
   ASIGNACIONES_SIN_FOCALIZACION: 'asignaciones_sin_focalizacion',
+  AVANCES_MANUALES:              'avances_manuales',
   USUARIOS:                      'usuarios',
 };
 
@@ -41,6 +42,13 @@ const ENCABEZADOS = {
   [HOJAS.ASIGNACIONES_SIN_FOCALIZACION]: [
     'id', 'meta_id', 'padrino_id', 'cantidad_asignada', 'cantidad_realizada',
   ],
+  // Registros de avance para metas "otro_indicador" (Manual en la interfaz):
+  // cada fila es un incremento con fecha, en vez de sobrescribir una cifra
+  // única — el ejecutado de la meta se calcula sumando estos registros
+  // (ver ejecutadoDe en src/utils/avance.js).
+  [HOJAS.AVANCES_MANUALES]: [
+    'id', 'meta_id', 'cantidad', 'fecha',
+  ],
   [HOJAS.USUARIOS]: [
     'id', 'nombre', 'correo', 'rol', 'proyectos_ids', 'token',
   ],
@@ -57,6 +65,7 @@ const ENTIDADES_CRUD = {
   metas: HOJAS.METAS,
   focalizacion: HOJAS.FOCALIZACION,
   asignaciones_sin_focalizacion: HOJAS.ASIGNACIONES_SIN_FOCALIZACION,
+  avances_manuales: HOJAS.AVANCES_MANUALES,
 };
 
 // Catálogo externo (solo lectura, no se duplica): el mismo archivo tiene la
@@ -448,6 +457,7 @@ function getPadrinoResumen(token) {
     const proyecto = meta && proyectoPorId[String(meta.proyecto_id)];
     return Object.assign({}, item, {
       meta_descripcion: meta ? meta.descripcion : '',
+      meta_tipo: meta ? meta.tipo : '',
       convenio_nombre: convenio ? convenio.nombre : '',
       proyecto_nombre: proyecto ? proyecto.nombre : '',
     });
