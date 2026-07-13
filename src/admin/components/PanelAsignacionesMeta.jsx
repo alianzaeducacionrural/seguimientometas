@@ -55,12 +55,30 @@ export default function PanelAsignacionesMeta({
   const [guardandoVisita, setGuardandoVisita] = useState(false)
   const [errorVisita, setErrorVisita] = useState(null)
 
-  const padrinosAsignadosIds = new Set(asignaciones.map((a) => String(a.padrino_id)))
+  // Duplicados históricos: mismo padrino con más de una fila de cuota en esta
+  // meta (carreras al crear antes del lock/guard; algunas incluso comparten
+  // el mismo id). Se conserva una fila por padrino (la de mayor
+  // cantidad_asignada) y las demás quedan como sobrantes — la reconciliación
+  // de abajo las elimina, y aquí ya no se muestran ni se cuentan. Se trabaja
+  // por referencia, no por id, porque algunas filas duplicadas comparten id.
+  const asignacionesUnicas = []
+  const idsSobrantes = []
+  const vistoPorPadrino = new Set();
+  [...asignaciones]
+    .sort((a, b) => (Number(b.cantidad_asignada) || 0) - (Number(a.cantidad_asignada) || 0))
+    .forEach((a) => {
+      const id = String(a.padrino_id || '')
+      if (id && vistoPorPadrino.has(id)) { idsSobrantes.push(a.id); return }
+      if (id) vistoPorPadrino.add(id)
+      asignacionesUnicas.push(a)
+    })
+
+  const padrinosAsignadosIds = new Set(asignacionesUnicas.map((a) => String(a.padrino_id)))
   const padrinosDisponibles = padrinos.filter((p) => !padrinosAsignadosIds.has(String(p.id)))
 
   const visitasRealizadas = visitas.filter((v) => v.estado === 'realizada')
   const visitasProgramadas = visitas.filter((v) => v.estado === 'programada')
-  const totalAsignado = asignaciones.reduce((sum, a) => sum + (Number(a.cantidad_asignada) || 0), 0)
+  const totalAsignado = asignacionesUnicas.reduce((sum, a) => sum + (Number(a.cantidad_asignada) || 0), 0)
   const metaNum = Number(meta.cantidad_meta) || 0
   const Titulo = compacta ? 'h3' : 'h2'
 
@@ -89,8 +107,8 @@ export default function PanelAsignacionesMeta({
   // La tabla de cuotas por padrino se acota solo por el filtro global de
   // padrino (una cuota no tiene estado, así que el filtro de estado no aplica).
   const asignacionesMostradas = filtroPadrino
-    ? asignaciones.filter((a) => String(a.padrino_id) === String(filtroPadrino))
-    : asignaciones
+    ? asignacionesUnicas.filter((a) => String(a.padrino_id) === String(filtroPadrino))
+    : asignacionesUnicas
 
   function abrirModalAsignar() {
     setPadrinoId('')
@@ -166,9 +184,16 @@ export default function PanelAsignacionesMeta({
     firmaEnCursoRef.current = firma
     let cancelado = false
     async function reconciliar() {
+      // Primero elimina las filas de cuota duplicadas (mismo padrino), que
+      // conservamos solo una. Al borrar una, los datos se recargan y este
+      // efecto vuelve a correr con la firma nueva hasta quedar limpio.
+      for (const id of idsSobrantes) {
+        if (cancelado) return
+        await onEliminarAsignacion(id)
+      }
       for (const [padrinoIdConVisitas, cantidad] of Object.entries(conteoPorPadrino)) {
         if (cancelado) return
-        const existente = asignaciones.find((a) => String(a.padrino_id) === padrinoIdConVisitas)
+        const existente = asignacionesUnicas.find((a) => String(a.padrino_id) === padrinoIdConVisitas)
         if (!existente) {
           await onAsignarPadrino({ meta_id: meta.id, padrino_id: padrinoIdConVisitas, cantidad_asignada: cantidad, cantidad_realizada: 0 })
         } else if ((Number(existente.cantidad_asignada) || 0) < cantidad) {

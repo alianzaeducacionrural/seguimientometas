@@ -1098,6 +1098,12 @@ input::placeholder {
   cursor: pointer;
 }
 
+.barra-filtros input {
+  background-color: var(--superficie);
+  padding: 0.42rem 0.7rem;
+  min-width: 240px;
+}
+
 /* Filtro activo: se resalta en aguamarina para que salte a la vista. */
 .barra-filtros select.activo {
   border-color: var(--aguamarina);
@@ -1356,6 +1362,7 @@ input::placeholder {
   }
 
   .barra-filtros select,
+  .barra-filtros input,
   .barra-filtros .btn-limpiar {
     flex: 1 1 100%;
     min-width: 0;

@@ -10,6 +10,7 @@ import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import { totalesDe, conContexto } from '../../utils/cargaPadrino'
 import { ordenarPorProyecto } from '../../utils/proyectos'
+import { coincideBusqueda } from '../../utils/texto'
 
 export default function ActividadesPadrino() {
   const usuarios = useEntidad('usuarios')
@@ -21,6 +22,8 @@ export default function ActividadesPadrino() {
 
   const [abiertoId, setAbiertoId] = useState(null)
   const [orden, setOrden] = useState({ columna: 'nombre', asc: true })
+  const [proyectoId, setProyectoId] = useState('')
+  const [busqueda, setBusqueda] = useState('')
 
   function ordenarPor(columna) {
     setOrden((actual) => (actual.columna === columna ? { columna, asc: !actual.asc } : { columna, asc: true }))
@@ -50,10 +53,27 @@ export default function ActividadesPadrino() {
   const focalizacionConContexto = focalizacion.datos.map((f) => conContexto(f, metaPorId, convenioPorId, proyectoPorId))
   const asignacionesConContexto = asignaciones.datos.map((a) => conContexto(a, metaPorId, convenioPorId, proyectoPorId))
 
-  const filas = padrinos.map((padrino) => ({
-    padrino,
-    ...totalesDe(padrino.id, focalizacion.datos, asignaciones.datos, metaPorId),
-  }))
+  // Filtro por proyecto: se aplica sobre las filas ya enriquecidas (que
+  // llevan proyecto_id de su meta), y los totales de cada padrino se calculan
+  // sobre estos mismos arrays acotados para que la tabla cuadre con las
+  // tarjetas que se ven al expandir.
+  const coincideProyecto = (item) => !proyectoId || String(item.proyecto_id) === String(proyectoId)
+  const focVisibles = focalizacionConContexto.filter(coincideProyecto)
+  const asigVisibles = asignacionesConContexto.filter(coincideProyecto)
+
+  const tieneActividad = (id) =>
+    focVisibles.some((f) => String(f.padrino_id) === String(id))
+    || asigVisibles.some((a) => String(a.padrino_id) === String(id))
+
+  const filas = padrinos
+    .filter((p) => coincideBusqueda(busqueda, p.nombre))
+    // Con filtro de proyecto activo, solo padrinos con actividad en él (sin
+    // filtro se listan todos, como antes).
+    .filter((p) => !proyectoId || tieneActividad(p.id))
+    .map((padrino) => ({
+      padrino,
+      ...totalesDe(padrino.id, focVisibles, asigVisibles, metaPorId),
+    }))
   const filasOrdenadas = [...filas].sort((a, b) => {
     const cmp = orden.columna === 'nombre'
       ? a.padrino.nombre.localeCompare(b.padrino.nombre)
@@ -65,6 +85,35 @@ export default function ActividadesPadrino() {
     <section className="vista">
       <h2>Actividades por padrino</h2>
 
+      <div className="barra-filtros">
+        <span className="barra-filtros__titulo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+          </svg>
+          Filtros
+        </span>
+        <select className={proyectoId ? 'activo' : ''} value={proyectoId} onChange={(e) => setProyectoId(e.target.value)}>
+          <option value="">Todos los proyectos</option>
+          {proyectos.datos.map((p) => (
+            <option key={p.id} value={String(p.id)}>{p.nombre}</option>
+          ))}
+        </select>
+        <input
+          type="search"
+          placeholder="Buscar padrino…"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+        {(proyectoId || busqueda) && (
+          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setBusqueda('') }}>
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+
+      {filasOrdenadas.length === 0 ? (
+        <Vacio>Ningún padrino coincide con los filtros.</Vacio>
+      ) : (
       <div className="tabla-envoltura">
         <table className="tabla">
           <thead>
@@ -80,13 +129,13 @@ export default function ActividadesPadrino() {
             {filasOrdenadas.map(({ padrino, asignadas, realizadas, pendientes }) => {
               const abierto = String(abiertoId) === String(padrino.id)
 
-              const pendientesFocalizacion = ordenarPorProyecto(focalizacionConContexto.filter(
+              const pendientesFocalizacion = ordenarPorProyecto(focVisibles.filter(
                 (f) => String(f.padrino_id) === String(padrino.id) && f.estado !== 'realizada'
               ), proyectos.datos)
-              const realizadasFocalizacion = ordenarPorProyecto(focalizacionConContexto.filter(
+              const realizadasFocalizacion = ordenarPorProyecto(focVisibles.filter(
                 (f) => String(f.padrino_id) === String(padrino.id) && f.estado === 'realizada'
               ), proyectos.datos)
-              const asignacionesDelPadrino = asignacionesConContexto.filter(
+              const asignacionesDelPadrino = asigVisibles.filter(
                 (a) => String(a.padrino_id) === String(padrino.id)
               )
 
@@ -171,6 +220,7 @@ export default function ActividadesPadrino() {
           </tbody>
         </table>
       </div>
+      )}
     </section>
   )
 }
