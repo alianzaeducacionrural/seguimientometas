@@ -32,7 +32,7 @@ export default function PanelAsignacionesMeta({
   meta, asignaciones, visitas, padrinos,
   onAsignarPadrino, onGuardarAsignacion, onEliminarAsignacion,
   onRegistrarVisita, onReasignarVisita, onProgramarVisita, onMarcarRealizadaVisita, onVolverPendienteVisita, onEliminarVisita,
-  compacta = false,
+  compacta = false, filtroPadrino = '', filtroEstado = '',
 }) {
   const [municipioFiltro, setMunicipioFiltro] = useState('')
   const [institucionFiltro, setInstitucionFiltro] = useState('')
@@ -77,11 +77,20 @@ export default function PanelAsignacionesMeta({
     visitas.filter((v) => !municipioFiltro || v.municipio === municipioFiltro).map((v) => v.institucion).filter(Boolean)
   )).sort()
   const visitasFiltradas = visitas.filter((v) => {
+    // Filtros globales (padrino/estado) de la vista Focalización, si vienen.
+    if (filtroPadrino && String(v.padrino_id) !== String(filtroPadrino)) return false
+    if (filtroEstado && v.estado !== filtroEstado) return false
     if (municipioFiltro && v.municipio !== municipioFiltro) return false
     if (institucionFiltro && v.institucion !== institucionFiltro) return false
     if (estadoFiltro && v.estado !== estadoFiltro) return false
     return coincideBusqueda(busqueda, v.municipio, v.institucion, v.sede, nombreDe(v.padrino_id))
   })
+
+  // La tabla de cuotas por padrino se acota solo por el filtro global de
+  // padrino (una cuota no tiene estado, así que el filtro de estado no aplica).
+  const asignacionesMostradas = filtroPadrino
+    ? asignaciones.filter((a) => String(a.padrino_id) === String(filtroPadrino))
+    : asignaciones
 
   function abrirModalAsignar() {
     setPadrinoId('')
@@ -370,12 +379,12 @@ export default function PanelAsignacionesMeta({
 
       <div className="encabezado-plegable" onClick={() => setAsignacionAbierta((v) => !v)}>
         <Flecha abierta={asignacionAbierta} />
-        <h4>Asignación por padrino ({asignaciones.length})</h4>
+        <h4>Asignación por padrino ({asignacionesMostradas.length})</h4>
       </div>
       {asignacionAbierta && (
         <>
-          {asignaciones.length === 0 ? (
-            <Vacio>Todavía no hay cuotas asignadas a esta meta.</Vacio>
+          {asignacionesMostradas.length === 0 ? (
+            <Vacio>{filtroPadrino ? 'Este padrino no tiene cuota asignada en esta meta.' : 'Todavía no hay cuotas asignadas a esta meta.'}</Vacio>
           ) : (
             <div className="tabla-envoltura">
               <table className="tabla">
@@ -388,7 +397,7 @@ export default function PanelAsignacionesMeta({
                   </tr>
                 </thead>
                 <tbody>
-                  {asignaciones.map((item) => (
+                  {asignacionesMostradas.map((item) => (
                     <FilaAsignacion
                       key={`${item.id}-${item.cantidad_asignada}`}
                       item={item}

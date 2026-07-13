@@ -18,7 +18,7 @@ const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 // (`Focalizacion.jsx`), sin duplicar el fetch de datos ni la lógica.
 // `compacta` baja el título de h2 a h3 para cuando va anidada dentro de un
 // acordeón (mismo criterio que TablaCrud/MetasDeConvenio).
-export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, compacta = false }) {
+export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, compacta = false, filtroPadrino = '', filtroEstado = '' }) {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [seleccion, setSeleccion] = useState(SELECCION_VACIA)
   const [padrinoId, setPadrinoId] = useState('')
@@ -43,6 +43,9 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
     items.filter((i) => !municipioFiltro || i.municipio === municipioFiltro).map((i) => i.institucion).filter(Boolean)
   )).sort()
   const itemsFiltrados = items.filter((i) => {
+    // Filtros globales (padrino/estado) de la vista Focalización, si vienen.
+    if (filtroPadrino && String(i.padrino_id) !== String(filtroPadrino)) return false
+    if (filtroEstado && i.estado !== filtroEstado) return false
     if (municipioFiltro && i.municipio !== municipioFiltro) return false
     if (institucionFiltro && i.institucion !== institucionFiltro) return false
     return coincideBusqueda(busqueda, i.municipio, i.institucion, i.sede, nombreDe(i.padrino_id))

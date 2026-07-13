@@ -236,6 +236,8 @@ export default function Focalizacion() {
                                                             {meta.tipo === 'visita_focalizada' ? (
                                                               <PanelFocalizacionMeta
                                                                 compacta
+                                                                filtroPadrino={padrinoId}
+                                                                filtroEstado={estado}
                                                                 meta={meta}
                                                                 items={focalizacion.datos.filter((f) => String(f.meta_id) === String(meta.id))}
                                                                 padrinos={padrinos}
@@ -249,6 +251,8 @@ export default function Focalizacion() {
                                                             ) : (
                                                               <PanelAsignacionesMeta
                                                                 compacta
+                                                                filtroPadrino={padrinoId}
+                                                                filtroEstado={estado}
                                                                 meta={meta}
                                                                 asignaciones={asignaciones.datos.filter((a) => String(a.meta_id) === String(meta.id))}
                                                                 visitas={focalizacion.datos.filter((f) => String(f.meta_id) === String(meta.id))}
