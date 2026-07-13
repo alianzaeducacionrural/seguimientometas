@@ -107,27 +107,33 @@ export default function Focalizacion() {
     <section className="vista">
       <h2>Focalización</h2>
 
-      <div className="filtros">
-        <select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)}>
+      <div className="barra-filtros">
+        <span className="barra-filtros__titulo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+          </svg>
+          Filtros
+        </span>
+        <select className={proyectoId ? 'activo' : ''} value={proyectoId} onChange={(e) => setProyectoId(e.target.value)}>
           <option value="">Todos los proyectos</option>
           {proyectos.datos.map((p) => (
             <option key={p.id} value={String(p.id)}>{p.nombre}</option>
           ))}
         </select>
-        <select value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
+        <select className={padrinoId ? 'activo' : ''} value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
           <option value="">Todos los padrinos</option>
           {padrinos.map((p) => (
             <option key={p.id} value={String(p.id)}>{p.nombre}</option>
           ))}
         </select>
-        <select value={estado} onChange={(e) => setEstado(e.target.value)}>
+        <select className={estado ? 'activo' : ''} value={estado} onChange={(e) => setEstado(e.target.value)}>
           <option value="">Todos los estados</option>
           <option value="pendiente">Pendiente</option>
           <option value="programada">Programada</option>
           <option value="realizada">Realizada</option>
         </select>
         {(proyectoId || padrinoId || estado) && (
-          <button type="button" onClick={() => { setProyectoId(''); setPadrinoId(''); setEstado('') }}>
+          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setPadrinoId(''); setEstado('') }}>
             Limpiar filtros
           </button>
         )}

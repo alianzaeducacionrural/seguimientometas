@@ -1052,6 +1052,75 @@ input::placeholder {
   margin-bottom: 1rem;
 }
 
+/* Barra de filtros destacada: tarjeta con tinte aguamarina, título con
+   ícono de embudo, selects con chevron propio y realce cuando están activos. */
+.barra-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding: 0.55rem 0.7rem;
+  background: linear-gradient(180deg, var(--aguamarina-tinte), var(--superficie));
+  border: 1px solid var(--aguamarina-borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-flotante);
+}
+
+.barra-filtros__titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--aguamarina-oscuro);
+  padding-right: 0.6rem;
+  border-right: 1px solid var(--aguamarina-borde);
+}
+
+.barra-filtros__titulo svg {
+  width: 15px;
+  height: 15px;
+}
+
+.barra-filtros select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--superficie);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23837e70' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  background-size: 13px;
+  padding: 0.42rem 1.85rem 0.42rem 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Filtro activo: se resalta en aguamarina para que salte a la vista. */
+.barra-filtros select.activo {
+  border-color: var(--aguamarina);
+  background-color: var(--aguamarina-tinte);
+  color: var(--aguamarina-oscuro);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--aguamarina);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a6870' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+.barra-filtros .btn-limpiar {
+  margin-left: auto;
+  color: var(--cereza);
+  border-color: transparent;
+  background: transparent;
+}
+
+.barra-filtros .btn-limpiar:hover:not(:disabled) {
+  background: var(--cereza-tinte);
+  border-color: transparent;
+  color: var(--cereza);
+}
+
 /* ---------- Página de inicio ---------- */
 
 .portada {
@@ -1277,6 +1346,20 @@ input::placeholder {
   .filtros button {
     flex: 1 1 100%;
     min-width: 0;
+  }
+
+  .barra-filtros__titulo {
+    flex: 1 1 100%;
+    border-right: none;
+    padding-right: 0;
+    padding-bottom: 0.15rem;
+  }
+
+  .barra-filtros select,
+  .barra-filtros .btn-limpiar {
+    flex: 1 1 100%;
+    min-width: 0;
+    margin-left: 0;
   }
 
   /* Modal tipo hoja inferior: ocupa el ancho, sube desde abajo. */
