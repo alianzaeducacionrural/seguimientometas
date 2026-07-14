@@ -23,6 +23,7 @@ export default function ActividadesPadrino() {
   const [abiertoId, setAbiertoId] = useState(null)
   const [orden, setOrden] = useState({ columna: 'nombre', asc: true })
   const [proyectoId, setProyectoId] = useState('')
+  const [estado, setEstado] = useState('')
   const [busqueda, setBusqueda] = useState('')
 
   function ordenarPor(columna) {
@@ -61,6 +62,13 @@ export default function ActividadesPadrino() {
   const focVisibles = focalizacionConContexto.filter(coincideProyecto)
   const asigVisibles = asignacionesConContexto.filter(coincideProyecto)
 
+  // El filtro de estado acota solo el detalle (tarjetas expandidas y el
+  // bloque "Sin asignar") y qué padrinos se listan; las columnas numéricas
+  // siguen siendo el total real del padrino (acotado por proyecto), porque ya
+  // desglosan realizadas/pendientes por sí mismas.
+  const focDetalle = estado ? focVisibles.filter((f) => f.estado === estado) : focVisibles
+
+  const sinPadrino = (f) => !String(f.padrino_id ?? '').trim()
   const tieneActividad = (id) =>
     focVisibles.some((f) => String(f.padrino_id) === String(id))
     || asigVisibles.some((a) => String(a.padrino_id) === String(id))
@@ -70,10 +78,19 @@ export default function ActividadesPadrino() {
     // Con filtro de proyecto activo, solo padrinos con actividad en él (sin
     // filtro se listan todos, como antes).
     .filter((p) => !proyectoId || tieneActividad(p.id))
+    // Con filtro de estado activo, solo padrinos con alguna visita en ese estado.
+    .filter((p) => !estado || focDetalle.some((f) => String(f.padrino_id) === String(p.id)))
     .map((padrino) => ({
       padrino,
       ...totalesDe(padrino.id, focVisibles, asigVisibles, metaPorId),
     }))
+
+  // Visitas focalizadas todavía sin padrino asignado, para la fila destacada.
+  const sinAsignarPend = ordenarPorProyecto(focDetalle.filter((f) => sinPadrino(f) && f.estado !== 'realizada'), proyectos.datos)
+  const sinAsignarReal = ordenarPorProyecto(focDetalle.filter((f) => sinPadrino(f) && f.estado === 'realizada'), proyectos.datos)
+  const sinAsignarTotal = sinAsignarPend.length + sinAsignarReal.length
+  const mostrarSinAsignar = sinAsignarTotal > 0 && coincideBusqueda(busqueda, 'Sin asignar')
+  const sinAsignarAbierto = abiertoId === 'sin-asignar'
   const filasOrdenadas = [...filas].sort((a, b) => {
     const cmp = orden.columna === 'nombre'
       ? a.padrino.nombre.localeCompare(b.padrino.nombre)
@@ -98,20 +115,26 @@ export default function ActividadesPadrino() {
             <option key={p.id} value={String(p.id)}>{p.nombre}</option>
           ))}
         </select>
+        <select className={estado ? 'activo' : ''} value={estado} onChange={(e) => setEstado(e.target.value)}>
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="programada">Programada</option>
+          <option value="realizada">Realizada</option>
+        </select>
         <input
           type="search"
           placeholder="Buscar padrino…"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
-        {(proyectoId || busqueda) && (
-          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setBusqueda('') }}>
+        {(proyectoId || estado || busqueda) && (
+          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setEstado(''); setBusqueda('') }}>
             Limpiar filtros
           </button>
         )}
       </div>
 
-      {filasOrdenadas.length === 0 ? (
+      {filasOrdenadas.length === 0 && !mostrarSinAsignar ? (
         <Vacio>Ningún padrino coincide con los filtros.</Vacio>
       ) : (
       <div className="tabla-envoltura">
@@ -126,13 +149,59 @@ export default function ActividadesPadrino() {
             </tr>
           </thead>
           <tbody>
+            {mostrarSinAsignar && (
+              <Fragment key="sin-asignar">
+                <tr
+                  className={`fila-expandible fila-sin-asignar${sinAsignarAbierto ? ' fila-abierta' : ''}`}
+                  onClick={() => setAbiertoId(sinAsignarAbierto ? null : 'sin-asignar')}
+                >
+                  <td className="celda-flecha"><Flecha abierta={sinAsignarAbierto} /></td>
+                  <td>
+                    <span className="etiqueta-sin-asignar">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                      Sin asignar
+                    </span>
+                  </td>
+                  <td className="numero">{sinAsignarTotal}</td>
+                  <td className="numero">{sinAsignarReal.length}</td>
+                  <td className="numero">{sinAsignarPend.length}</td>
+                </tr>
+                {sinAsignarAbierto && (
+                  <tr className="fila-panel">
+                    <td colSpan={5}>
+                      <div className="panel-acordeon">
+                        <ColumnasVisitas
+                          pendientes={sinAsignarPend}
+                          realizadas={sinAsignarReal}
+                          renderTarjeta={(item) => (
+                            <TarjetaVisitaEditable
+                              key={item.id}
+                              item={item}
+                              padrinos={padrinos}
+                              onReasignar={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
+                              onProgramar={programar}
+                              onMarcarRealizada={marcarRealizada}
+                              onVolverPendiente={volverAPendiente}
+                            />
+                          )}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )}
             {filasOrdenadas.map(({ padrino, asignadas, realizadas, pendientes }) => {
               const abierto = String(abiertoId) === String(padrino.id)
 
-              const pendientesFocalizacion = ordenarPorProyecto(focVisibles.filter(
+              const pendientesFocalizacion = ordenarPorProyecto(focDetalle.filter(
                 (f) => String(f.padrino_id) === String(padrino.id) && f.estado !== 'realizada'
               ), proyectos.datos)
-              const realizadasFocalizacion = ordenarPorProyecto(focVisibles.filter(
+              const realizadasFocalizacion = ordenarPorProyecto(focDetalle.filter(
                 (f) => String(f.padrino_id) === String(padrino.id) && f.estado === 'realizada'
               ), proyectos.datos)
               const asignacionesDelPadrino = asigVisibles.filter(

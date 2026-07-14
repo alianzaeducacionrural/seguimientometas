@@ -595,6 +595,34 @@ input::placeholder {
   background: var(--aguamarina-tinte);
 }
 
+/* Fila destacada "Sin asignar" (Actividades por padrino): visitas focalizadas
+   todavía sin padrino, resaltadas en ámbar para identificarlas de un vistazo. */
+.fila-sin-asignar > td {
+  background: var(--maduracion-tinte);
+}
+
+.fila-sin-asignar.fila-abierta > td {
+  background: #f5e7c2;
+}
+
+.fila-sin-asignar > td:first-child {
+  box-shadow: inset 3px 0 0 var(--maduracion);
+}
+
+.etiqueta-sin-asignar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--maduracion);
+  font-weight: 800;
+}
+
+.etiqueta-sin-asignar svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .fila-panel > td {
   padding: 0 !important;
   border-top: none !important;
