@@ -5,7 +5,8 @@ import PanelFocalizacionMeta from '../components/PanelFocalizacionMeta'
 import PanelAsignacionesMeta from '../components/PanelAsignacionesMeta'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
-import { idsDeLista } from '../../utils/proyectos'
+import FilaFocalizacion from '../components/FilaFocalizacion'
+import { idsDeLista, ordenDeProyecto } from '../../utils/proyectos'
 import { ejecutadoDe } from '../../utils/avance'
 import { colorAvance, colorPorId } from '../../utils/colores'
 import estilos from '../../components/TarjetaResumen.module.css'
@@ -34,6 +35,9 @@ export default function Focalizacion() {
   const [convenioAbierto, setConvenioAbierto] = useState(null)
   const [proyectoAbierto, setProyectoAbierto] = useState(null)
   const [metaAbierta, setMetaAbierta] = useState(null)
+  // Dentro de un convenio abierto: 'arbol' (desglose por proyecto/actividad) o
+  // 'lista' (todas las visitas del convenio en una tabla plana).
+  const [modoConvenio, setModoConvenio] = useState('arbol')
 
   const cargando = proyectos.cargando || convenios.cargando || aliados.cargando || metas.cargando
     || focalizacion.cargando || asignaciones.cargando || usuarios.cargando
@@ -72,6 +76,37 @@ export default function Focalizacion() {
       && metaCoincideFiltros(m))
   }
 
+  const metaPorId = Object.fromEntries(metas.datos.map((m) => [String(m.id), m]))
+  const proyectoPorId = Object.fromEntries(proyectos.datos.map((p) => [String(p.id), p]))
+
+  // Todas las visitas (focalizacion) de un convenio en una lista plana, con
+  // su proyecto y actividad resueltos, para la vista "lista". Respeta los
+  // filtros globales (proyecto/padrino/estado). Ordenadas por proyecto (orden
+  // fijo del catálogo), luego actividad, luego municipio.
+  function visitasDelConvenio(convenio) {
+    const metaIds = new Set(metas.datos
+      .filter((m) => String(m.convenio_id) === String(convenio.id)
+        && (m.tipo === 'visita_focalizada' || m.tipo === 'visita_sin_focalizar')
+        && (!proyectoId || String(m.proyecto_id) === proyectoId))
+      .map((m) => String(m.id)))
+    return focalizacion.datos
+      .filter((f) => metaIds.has(String(f.meta_id)))
+      .filter((f) => (!padrinoId || String(f.padrino_id) === padrinoId)
+        && (!estado || f.estado === estado))
+      .map((f) => {
+        const meta = metaPorId[String(f.meta_id)]
+        return { foc: f, meta, proyecto: meta && proyectoPorId[String(meta.proyecto_id)] }
+      })
+      .sort((a, b) => {
+        const oa = ordenDeProyecto(a.meta?.proyecto_id, proyectos.datos)
+        const ob = ordenDeProyecto(b.meta?.proyecto_id, proyectos.datos)
+        if (oa !== ob) return oa - ob
+        const ma = (a.meta?.descripcion || '').localeCompare(b.meta?.descripcion || '')
+        if (ma !== 0) return ma
+        return (a.foc.municipio || '').localeCompare(b.foc.municipio || '')
+      })
+  }
+
   // Proyectos de un convenio, en el orden fijo del catálogo, solo los que
   // tienen alguna actividad de focalización/sin-focalizar.
   function proyectosDelConvenio(convenio) {
@@ -96,6 +131,7 @@ export default function Focalizacion() {
     setConvenioAbierto((actual) => (actual === id ? null : id))
     setProyectoAbierto(null)
     setMetaAbierta(null)
+    setModoConvenio('arbol')
   }
 
   function abrirProyecto(id) {
@@ -157,6 +193,7 @@ export default function Focalizacion() {
               {conveniosConProyectos.map(({ convenio, proyectos: proyectosDelConvenioActual }) => {
                 const convenioEstaAbierto = convenioAbierto === convenio.id
                 const aliado = aliados.datos.find((a) => String(a.id) === String(convenio.aliado_id))
+                const visitasLista = convenioEstaAbierto && modoConvenio === 'lista' ? visitasDelConvenio(convenio) : []
 
                 return (
                   <Fragment key={convenio.id}>
@@ -172,6 +209,68 @@ export default function Focalizacion() {
                       <tr className="fila-panel">
                         <td colSpan={3}>
                           <div className="panel-acordeon">
+                            <div className="conmutador-vista">
+                              <button
+                                type="button"
+                                className={modoConvenio === 'arbol' ? 'btn-primario' : ''}
+                                onClick={() => setModoConvenio('arbol')}
+                              >
+                                Por actividad
+                              </button>
+                              <button
+                                type="button"
+                                className={modoConvenio === 'lista' ? 'btn-primario' : ''}
+                                onClick={() => setModoConvenio('lista')}
+                              >
+                                Todas las visitas
+                              </button>
+                            </div>
+                            {modoConvenio === 'lista' ? (
+                              visitasLista.length === 0 ? (
+                                <Vacio>No hay visitas que coincidan con los filtros.</Vacio>
+                              ) : (
+                                <div className="tabla-envoltura">
+                                  <table className="tabla tabla-visitas">
+                                    <thead>
+                                      <tr>
+                                        <th>Proyecto</th>
+                                        <th>Actividad</th>
+                                        <th>Ubicación</th>
+                                        <th>Padrino</th>
+                                        <th>Estado</th>
+                                        <th>Acción</th>
+                                        <th></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {visitasLista.map(({ foc, meta, proyecto }) => (
+                                        <FilaFocalizacion
+                                          key={foc.id}
+                                          item={foc}
+                                          padrinos={padrinos}
+                                          ubicacionJunta
+                                          celdasIniciales={(
+                                            <>
+                                              <td>
+                                                <span className="etiqueta-proyecto" style={{ '--acento': colorPorId(proyecto?.id) }}>
+                                                  {proyecto?.nombre || '—'}
+                                                </span>
+                                              </td>
+                                              <td>{meta?.descripcion || '—'}</td>
+                                            </>
+                                          )}
+                                          onReasignar={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
+                                          onProgramar={programar}
+                                          onMarcarRealizada={marcarRealizada}
+                                          onVolverPendiente={volverAPendiente}
+                                          onEliminar={focalizacion.eliminarItem}
+                                        />
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )
+                            ) : (
                             <div className="lista-proyectos">
                               {proyectosDelConvenioActual.map(({ proyecto, metas: metasDelProyecto }) => {
                                 const proyectoEstaAbierto = proyectoAbierto === proyecto.id
@@ -284,6 +383,7 @@ export default function Focalizacion() {
                                 )
                               })}
                             </div>
+                            )}
                           </div>
                         </td>
                       </tr>

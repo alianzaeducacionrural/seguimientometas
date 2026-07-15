@@ -629,6 +629,54 @@ input::placeholder {
   background: var(--superficie-2);
 }
 
+/* Conmutador "Por actividad" | "Todas las visitas" dentro del panel de un
+   convenio en Focalización. */
+.conmutador-vista {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+/* Etiqueta de proyecto (con punto de color) en la lista plana de visitas. */
+.etiqueta-proyecto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.etiqueta-proyecto::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--acento, var(--tinta-3));
+  flex-shrink: 0;
+}
+
+/* Tabla plana "Todas las visitas": más compacta para que quepan sus muchas
+   columnas — padding lateral menor, select de padrino acotado y ubicación
+   (municipio + institución·sede) en una sola celda de dos líneas. */
+.tabla-visitas th,
+.tabla-visitas td {
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
+}
+
+.tabla-visitas select {
+  max-width: 190px;
+}
+
+.celda-ubicacion > div:first-child {
+  font-weight: 600;
+}
+
+.celda-ubicacion-sub {
+  color: var(--tinta-3);
+  font-size: 0.82em;
+}
+
 .panel-acordeon {
   padding: 1rem 1.25rem 1.35rem;
   border-top: 1px solid var(--borde-suave);
@@ -641,6 +689,27 @@ input::placeholder {
   position: sticky;
   left: 0;
   max-width: calc(100vw - 2rem);
+}
+
+/* En escritorio el contenido vive en la columna a la derecha de la barra
+   lateral de 250px, y .contenido se limita a 1180px con 2rem de padding a
+   cada lado: el max-width del panel debe descontar todo eso, si no una tabla
+   anidada ancha (p.ej. "Todas las visitas") desborda la página en vez de
+   scrollear por su cuenta. */
+@media (min-width: 901px) {
+  .panel-acordeon {
+    max-width: min(1116px, calc(100vw - 250px - 4rem));
+  }
+
+  /* Focalización aprovecha más ancho (tiene tablas anchas como "Todas las
+     visitas"): sube el tope del contenido y, en consecuencia, el del panel. */
+  .contenido-ancho {
+    max-width: 1500px;
+  }
+
+  .contenido-ancho .panel-acordeon {
+    max-width: min(calc(1500px - 4rem), calc(100vw - 250px - 4rem));
+  }
 }
 
 /* Lista de proyectos dentro de un convenio (Focalizacion.jsx): tarjetas

@@ -8,7 +8,7 @@ import { formatearFecha, hoy } from '../../utils/formato'
 // input de fecha sin afectar a las demás.
 // Transiciones permitidas: pendiente → programada o directo a realizada;
 // programada → realizada o de vuelta a pendiente; realizada es terminal.
-export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar }) {
+export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, celdasIniciales = null, ubicacionJunta = false }) {
   const [fecha, setFecha] = useState(hoy())
   const [guardando, setGuardando] = useState(false)
 
@@ -24,9 +24,19 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
 
   return (
     <tr>
-      <td>{item.municipio}</td>
-      <td>{item.institucion}</td>
-      <td>{item.sede}</td>
+      {celdasIniciales}
+      {ubicacionJunta ? (
+        <td className="celda-ubicacion">
+          <div>{item.municipio}</div>
+          <div className="celda-ubicacion-sub">{[item.institucion, item.sede].filter(Boolean).join(' · ')}</div>
+        </td>
+      ) : (
+        <>
+          <td>{item.municipio}</td>
+          <td>{item.institucion}</td>
+          <td>{item.sede}</td>
+        </>
+      )}
       <td>
         <select
           value={item.padrino_id || ''}

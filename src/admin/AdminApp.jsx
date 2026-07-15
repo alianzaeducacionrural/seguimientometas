@@ -1,4 +1,4 @@
-import { Link, NavLink, Route, Routes } from 'react-router-dom'
+import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import Proyectos from './views/Proyectos'
 import Aliados from './views/Aliados'
 import Usuarios from './views/Usuarios'
@@ -56,6 +56,12 @@ function Enlace({ to, label, Icono }) {
 }
 
 export default function AdminApp() {
+  const { pathname } = useLocation()
+  // La vista de Focalización tiene tablas anchas (p.ej. "Todas las visitas"):
+  // se le da más ancho de contenido para aprovechar el espacio y evitar
+  // desbordes/scroll innecesario.
+  const contenidoAncho = pathname === '/admin/focalizacion'
+
   return (
     <div className="cascaron">
       <aside className="lateral">
@@ -79,7 +85,7 @@ export default function AdminApp() {
       </aside>
 
       <div className="principal">
-        <main className="contenido">
+        <main className={`contenido${contenidoAncho ? ' contenido-ancho' : ''}`}>
           <Routes>
             <Route index element={<Proyectos />} />
             <Route path="aliados" element={<Aliados />} />
