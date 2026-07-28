@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import EstadoFocalizacion from '../../components/EstadoFocalizacion'
-import { formatearFecha, hoy } from '../../utils/formato'
+import { formatearFecha, hoy, soloFecha } from '../../utils/formato'
 
 // Una fila de focalización: reasignar padrino es inmediato; programar,
 // marcar realizada y volver a pendiente piden confirmación (fecha o
@@ -11,15 +11,23 @@ import { formatearFecha, hoy } from '../../utils/formato'
 export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, celdasIniciales = null, ubicacionJunta = false }) {
   const [fecha, setFecha] = useState(hoy())
   const [guardando, setGuardando] = useState(false)
+  // Edición de una visita ya realizada (por si se registró por error).
+  const [corrigiendo, setCorrigiendo] = useState(false)
 
   async function ejecutar(accion, conFecha = true) {
     setGuardando(true)
     try {
       if (conFecha) await accion(item.id, fecha)
       else await accion(item.id)
+      setCorrigiendo(false)
     } finally {
       setGuardando(false)
     }
+  }
+
+  function abrirCorreccion() {
+    setFecha(soloFecha(item.fecha_realizada) || hoy())
+    setCorrigiendo(true)
   }
 
   return (
@@ -67,7 +75,23 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
             </button>
           </>
         )}
-        {item.estado === 'realizada' && <span>Realizada: {formatearFecha(item.fecha_realizada)}</span>}
+        {item.estado === 'realizada' && (
+          corrigiendo ? (
+            <>
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />{' '}
+              <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Guardar fecha</button>{' '}
+              <button type="button" className="btn-peligro" disabled={guardando} onClick={() => ejecutar(onVolverPendiente, false)}>
+                Volver a pendiente
+              </button>{' '}
+              <button type="button" disabled={guardando} onClick={() => setCorrigiendo(false)}>Cancelar</button>
+            </>
+          ) : (
+            <>
+              <span>Realizada: {formatearFecha(item.fecha_realizada)}</span>{' '}
+              <button type="button" onClick={abrirCorreccion}>Corregir</button>
+            </>
+          )
+        )}
       </td>
       <td className="celda-acciones">
         <button

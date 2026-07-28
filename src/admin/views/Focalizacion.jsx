@@ -7,6 +7,7 @@ import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import FilaFocalizacion from '../components/FilaFocalizacion'
 import { idsDeLista, ordenDeProyecto } from '../../utils/proyectos'
+import { coincideBusqueda } from '../../utils/texto'
 import { ejecutadoDe } from '../../utils/avance'
 import { colorAvance, colorPorId } from '../../utils/colores'
 import estilos from '../../components/TarjetaResumen.module.css'
@@ -38,6 +39,9 @@ export default function Focalizacion() {
   // Dentro de un convenio abierto: 'arbol' (desglose por proyecto/actividad) o
   // 'lista' (todas las visitas del convenio en una tabla plana).
   const [modoConvenio, setModoConvenio] = useState('arbol')
+  // Filtros locales de la vista "Todas las visitas".
+  const [municipioLista, setMunicipioLista] = useState('')
+  const [busquedaLista, setBusquedaLista] = useState('')
 
   const cargando = proyectos.cargando || convenios.cargando || aliados.cargando || metas.cargando
     || focalizacion.cargando || asignaciones.cargando || usuarios.cargando
@@ -48,6 +52,7 @@ export default function Focalizacion() {
   const padrinos = usuarios.datos
     .filter((u) => u.rol === 'padrino' || u.rol === 'lider')
     .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
+  const nombrePadrino = (id) => padrinos.find((p) => String(p.id) === String(id))?.nombre || ''
   const { programar, marcarRealizada, volverAPendiente } = accionesEstadoFocalizacion(focalizacion.editarItem)
 
   // Los filtros globales de padrino/estado acotan el árbol igual que el de
@@ -127,11 +132,17 @@ export default function Focalizacion() {
     }))
     .filter(({ proyectos: proyectosDelC }) => proyectosDelC.length > 0)
 
+  function limpiarFiltrosLista() {
+    setMunicipioLista('')
+    setBusquedaLista('')
+  }
+
   function abrirConvenio(id) {
     setConvenioAbierto((actual) => (actual === id ? null : id))
     setProyectoAbierto(null)
     setMetaAbierta(null)
     setModoConvenio('arbol')
+    limpiarFiltrosLista()
   }
 
   function abrirProyecto(id) {
@@ -194,6 +205,11 @@ export default function Focalizacion() {
                 const convenioEstaAbierto = convenioAbierto === convenio.id
                 const aliado = aliados.datos.find((a) => String(a.id) === String(convenio.aliado_id))
                 const visitasLista = convenioEstaAbierto && modoConvenio === 'lista' ? visitasDelConvenio(convenio) : []
+                const municipiosLista = Array.from(new Set(visitasLista.map((v) => v.foc.municipio).filter(Boolean))).sort()
+                const visitasListaFiltrada = visitasLista.filter(({ foc, meta, proyecto }) => {
+                  if (municipioLista && foc.municipio !== municipioLista) return false
+                  return coincideBusqueda(busquedaLista, proyecto?.nombre, meta?.descripcion, foc.municipio, foc.institucion, foc.sede, nombrePadrino(foc.padrino_id))
+                })
 
                 return (
                   <Fragment key={convenio.id}>
@@ -213,14 +229,14 @@ export default function Focalizacion() {
                               <button
                                 type="button"
                                 className={modoConvenio === 'arbol' ? 'btn-primario' : ''}
-                                onClick={() => setModoConvenio('arbol')}
+                                onClick={() => { setModoConvenio('arbol'); limpiarFiltrosLista() }}
                               >
                                 Por actividad
                               </button>
                               <button
                                 type="button"
                                 className={modoConvenio === 'lista' ? 'btn-primario' : ''}
-                                onClick={() => setModoConvenio('lista')}
+                                onClick={() => { setModoConvenio('lista'); limpiarFiltrosLista() }}
                               >
                                 Todas las visitas
                               </button>
@@ -229,7 +245,28 @@ export default function Focalizacion() {
                               visitasLista.length === 0 ? (
                                 <Vacio>No hay visitas que coincidan con los filtros.</Vacio>
                               ) : (
-                                <div className="tabla-envoltura">
+                                <>
+                                  <div className="filtros">
+                                    <select value={municipioLista} onChange={(e) => setMunicipioLista(e.target.value)}>
+                                      <option value="">Todos los municipios</option>
+                                      {municipiosLista.map((m) => (
+                                        <option key={m} value={m}>{m}</option>
+                                      ))}
+                                    </select>
+                                    <input
+                                      type="search"
+                                      placeholder="Buscar proyecto, actividad, municipio, institución, sede o padrino…"
+                                      value={busquedaLista}
+                                      onChange={(e) => setBusquedaLista(e.target.value)}
+                                    />
+                                    {(municipioLista || busquedaLista) && (
+                                      <button type="button" onClick={limpiarFiltrosLista}>Limpiar filtros</button>
+                                    )}
+                                  </div>
+                                  {visitasListaFiltrada.length === 0 ? (
+                                    <Vacio>Ninguna visita coincide con la búsqueda.</Vacio>
+                                  ) : (
+                                  <div className="tabla-envoltura">
                                   <table className="tabla tabla-visitas">
                                     <thead>
                                       <tr>
@@ -243,7 +280,7 @@ export default function Focalizacion() {
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {visitasLista.map(({ foc, meta, proyecto }) => (
+                                      {visitasListaFiltrada.map(({ foc, meta, proyecto }) => (
                                         <FilaFocalizacion
                                           key={foc.id}
                                           item={foc}
@@ -268,7 +305,9 @@ export default function Focalizacion() {
                                       ))}
                                     </tbody>
                                   </table>
-                                </div>
+                                  </div>
+                                  )}
+                                </>
                               )
                             ) : (
                             <div className="lista-proyectos">
