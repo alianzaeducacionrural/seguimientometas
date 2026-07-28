@@ -12,15 +12,15 @@ import { ejecutadoDe } from '../../utils/avance'
 import { colorAvance, colorPorId } from '../../utils/colores'
 import estilos from '../../components/TarjetaResumen.module.css'
 
-// Gestiona toda la focalización (sedes preasignadas y visitas sin
-// focalizar) sin tener que entrar a Convenios: filtro por proyecto arriba,
-// y un acordeón de tres niveles — Convenio → Proyecto → Actividad — porque
-// un convenio puede tocar varios proyectos y cada proyecto puede tener
-// varias actividades (metas). Al abrir una actividad se incrusta el panel
-// completo (PanelFocalizacionMeta/PanelAsignacionesMeta, los mismos que usa
-// la ruta /admin/metas/:metaId — nada se duplica), con sus propios filtros
-// de municipio/institución. Las metas "Manual" no aparecen acá, esas se
-// gestionan desde el acordeón de Convenios.
+// Gestiona toda la focalización (sedes preasignadas y visitas sin focalizar)
+// sin tener que entrar a Convenios. Dos vistas conmutables:
+//  - "Por convenio": acordeón de tres niveles Convenio → Proyecto → Actividad
+//    (al abrir una actividad se incrusta el panel completo, el mismo que usa
+//    la ruta /admin/metas/:metaId).
+//  - "Todas las visitas": lista plana de TODAS las visitas de todos los
+//    convenios, sin abrir cada uno, con KPIs de total.
+// Los filtros (proyecto, padrino, estado, municipio y búsqueda libre) son
+// globales y aplican a ambas vistas. Las metas "Manual" no aparecen acá.
 export default function Focalizacion() {
   const proyectos = useEntidad('proyectos')
   const convenios = useEntidad('convenios')
@@ -30,18 +30,17 @@ export default function Focalizacion() {
   const asignaciones = useEntidad('asignaciones_sin_focalizacion')
   const usuarios = useEntidad('usuarios')
 
+  // Filtros globales.
   const [proyectoId, setProyectoId] = useState('')
   const [padrinoId, setPadrinoId] = useState('')
   const [estado, setEstado] = useState('')
+  const [municipio, setMunicipio] = useState('')
+  const [busqueda, setBusqueda] = useState('')
+  // Vista de página: 'convenios' (acordeón) o 'todas' (lista plana global).
+  const [vista, setVista] = useState('convenios')
   const [convenioAbierto, setConvenioAbierto] = useState(null)
   const [proyectoAbierto, setProyectoAbierto] = useState(null)
   const [metaAbierta, setMetaAbierta] = useState(null)
-  // Dentro de un convenio abierto: 'arbol' (desglose por proyecto/actividad) o
-  // 'lista' (todas las visitas del convenio en una tabla plana).
-  const [modoConvenio, setModoConvenio] = useState('arbol')
-  // Filtros locales de la vista "Todas las visitas".
-  const [municipioLista, setMunicipioLista] = useState('')
-  const [busquedaLista, setBusquedaLista] = useState('')
 
   const cargando = proyectos.cargando || convenios.cargando || aliados.cargando || metas.cargando
     || focalizacion.cargando || asignaciones.cargando || usuarios.cargando
@@ -55,70 +54,66 @@ export default function Focalizacion() {
   const nombrePadrino = (id) => padrinos.find((p) => String(p.id) === String(id))?.nombre || ''
   const { programar, marcarRealizada, volverAPendiente } = accionesEstadoFocalizacion(focalizacion.editarItem)
 
-  // Los filtros globales de padrino/estado acotan el árbol igual que el de
-  // proyecto: una meta solo aparece si tiene alguna visita que coincida
-  // (mismo padrino y/o mismo estado). Para metas sin focalizar, un padrino
-  // con solo cuota asignada (aún sin visitas) también cuenta, mientras no se
-  // esté filtrando por estado.
-  function metaCoincideFiltros(meta) {
-    if (!padrinoId && !estado) return true
-    const visitas = focalizacion.datos.filter((f) => String(f.meta_id) === String(meta.id))
-    const hayVisita = visitas.some((f) =>
-      (!padrinoId || String(f.padrino_id) === padrinoId)
-      && (!estado || f.estado === estado))
+  const metaPorId = Object.fromEntries(metas.datos.map((m) => [String(m.id), m]))
+  const proyectoPorId = Object.fromEntries(proyectos.datos.map((p) => [String(p.id), p]))
+  const convenioPorId = Object.fromEntries(convenios.datos.map((c) => [String(c.id), c]))
+  const aliadoPorId = Object.fromEntries(aliados.datos.map((a) => [String(a.id), a]))
+
+  const esFocalizable = (m) => m && (m.tipo === 'visita_focalizada' || m.tipo === 'visita_sin_focalizar')
+  const hayFiltro = Boolean(proyectoId || padrinoId || estado || municipio || busqueda)
+
+  // Municipios disponibles: los que aparecen en alguna visita de una meta
+  // focalizable (para el filtro global).
+  const municipiosDisponibles = Array.from(new Set(
+    focalizacion.datos
+      .filter((f) => esFocalizable(metaPorId[String(f.meta_id)]))
+      .map((f) => f.municipio)
+      .filter(Boolean),
+  )).sort()
+
+  // ¿Una visita pasa los filtros globales? (proyecto se evalúa por la meta).
+  function visitaCoincide(f, meta, proyecto, convenio, aliado) {
+    if (padrinoId && String(f.padrino_id) !== padrinoId) return false
+    if (estado && f.estado !== estado) return false
+    if (municipio && f.municipio !== municipio) return false
+    return coincideBusqueda(busqueda, proyecto?.nombre, meta?.descripcion, convenio?.nombre, aliado?.nombre,
+      f.municipio, f.institucion, f.sede, nombrePadrino(f.padrino_id))
+  }
+
+  // ¿Una meta debe aparecer en el árbol? Sin filtros, todas (incluidas las
+  // vacías, para poder agregarles la primera sede). Con filtros, solo si tiene
+  // alguna visita que coincida — o, para sin-focalizar con cuota pero sin
+  // visitas, si el padrino filtrado tiene cuota (y no se filtró por
+  // estado/municipio, que no aplican a una cuota).
+  function metaCoincideFiltros(meta, convenio) {
+    if (!hayFiltro) return true
+    const proyecto = proyectoPorId[String(meta.proyecto_id)]
+    const aliado = convenio && aliadoPorId[String(convenio.aliado_id)]
+    const hayVisita = focalizacion.datos.some((f) => String(f.meta_id) === String(meta.id)
+      && visitaCoincide(f, meta, proyecto, convenio, aliado))
     if (hayVisita) return true
-    if (padrinoId && !estado && meta.tipo === 'visita_sin_focalizar') {
+    const metaMatchBusqueda = coincideBusqueda(busqueda, proyecto?.nombre, meta.descripcion, convenio?.nombre, aliado?.nombre)
+    if (padrinoId && !estado && !municipio && metaMatchBusqueda && meta.tipo === 'visita_sin_focalizar') {
       return asignaciones.datos.some((a) => String(a.meta_id) === String(meta.id)
         && String(a.padrino_id) === padrinoId)
     }
     return false
   }
 
-  function metasFocalizablesDe(convenioId, proyectoIdMeta) {
-    return metas.datos.filter((m) => String(m.convenio_id) === String(convenioId)
+  function metasFocalizablesDe(convenio, proyectoIdMeta) {
+    return metas.datos.filter((m) => String(m.convenio_id) === String(convenio.id)
       && String(m.proyecto_id) === String(proyectoIdMeta)
-      && (m.tipo === 'visita_focalizada' || m.tipo === 'visita_sin_focalizar')
-      && metaCoincideFiltros(m))
-  }
-
-  const metaPorId = Object.fromEntries(metas.datos.map((m) => [String(m.id), m]))
-  const proyectoPorId = Object.fromEntries(proyectos.datos.map((p) => [String(p.id), p]))
-
-  // Todas las visitas (focalizacion) de un convenio en una lista plana, con
-  // su proyecto y actividad resueltos, para la vista "lista". Respeta los
-  // filtros globales (proyecto/padrino/estado). Ordenadas por proyecto (orden
-  // fijo del catálogo), luego actividad, luego municipio.
-  function visitasDelConvenio(convenio) {
-    const metaIds = new Set(metas.datos
-      .filter((m) => String(m.convenio_id) === String(convenio.id)
-        && (m.tipo === 'visita_focalizada' || m.tipo === 'visita_sin_focalizar')
-        && (!proyectoId || String(m.proyecto_id) === proyectoId))
-      .map((m) => String(m.id)))
-    return focalizacion.datos
-      .filter((f) => metaIds.has(String(f.meta_id)))
-      .filter((f) => (!padrinoId || String(f.padrino_id) === padrinoId)
-        && (!estado || f.estado === estado))
-      .map((f) => {
-        const meta = metaPorId[String(f.meta_id)]
-        return { foc: f, meta, proyecto: meta && proyectoPorId[String(meta.proyecto_id)] }
-      })
-      .sort((a, b) => {
-        const oa = ordenDeProyecto(a.meta?.proyecto_id, proyectos.datos)
-        const ob = ordenDeProyecto(b.meta?.proyecto_id, proyectos.datos)
-        if (oa !== ob) return oa - ob
-        const ma = (a.meta?.descripcion || '').localeCompare(b.meta?.descripcion || '')
-        if (ma !== 0) return ma
-        return (a.foc.municipio || '').localeCompare(b.foc.municipio || '')
-      })
+      && esFocalizable(m)
+      && metaCoincideFiltros(m, convenio))
   }
 
   // Proyectos de un convenio, en el orden fijo del catálogo, solo los que
-  // tienen alguna actividad de focalización/sin-focalizar.
+  // tienen alguna actividad de focalización/sin-focalizar (tras filtros).
   function proyectosDelConvenio(convenio) {
     const idsDelConvenio = idsDeLista(convenio.proyectos_ids)
     return proyectos.datos
       .filter((p) => idsDelConvenio.includes(String(p.id)))
-      .map((p) => ({ proyecto: p, metas: metasFocalizablesDe(convenio.id, p.id) }))
+      .map((p) => ({ proyecto: p, metas: metasFocalizablesDe(convenio, p.id) }))
       .filter(({ metas: metasDelProyecto }) => metasDelProyecto.length > 0)
   }
 
@@ -132,23 +127,51 @@ export default function Focalizacion() {
     }))
     .filter(({ proyectos: proyectosDelC }) => proyectosDelC.length > 0)
 
-  function limpiarFiltrosLista() {
-    setMunicipioLista('')
-    setBusquedaLista('')
+  // Todas las visitas de todos los convenios en una lista plana, tras filtros,
+  // ordenadas por aliado → convenio → proyecto (orden fijo) → actividad → municipio.
+  function todasLasVisitas() {
+    return focalizacion.datos
+      .map((f) => {
+        const meta = metaPorId[String(f.meta_id)]
+        if (!esFocalizable(meta)) return null
+        const convenio = convenioPorId[String(meta.convenio_id)]
+        const proyecto = proyectoPorId[String(meta.proyecto_id)]
+        const aliado = convenio && aliadoPorId[String(convenio.aliado_id)]
+        return { foc: f, meta, proyecto, convenio, aliado }
+      })
+      .filter(Boolean)
+      .filter(({ foc, meta, proyecto, convenio, aliado }) =>
+        (!proyectoId || String(meta.proyecto_id) === proyectoId)
+        && visitaCoincide(foc, meta, proyecto, convenio, aliado))
+      .sort((a, b) => {
+        const al = (a.aliado?.nombre || '').localeCompare(b.aliado?.nombre || '')
+        if (al !== 0) return al
+        const cn = (a.convenio?.nombre || '').localeCompare(b.convenio?.nombre || '')
+        if (cn !== 0) return cn
+        const oa = ordenDeProyecto(a.meta?.proyecto_id, proyectos.datos)
+        const ob = ordenDeProyecto(b.meta?.proyecto_id, proyectos.datos)
+        if (oa !== ob) return oa - ob
+        const md = (a.meta?.descripcion || '').localeCompare(b.meta?.descripcion || '')
+        if (md !== 0) return md
+        return (a.foc.municipio || '').localeCompare(b.foc.municipio || '')
+      })
   }
 
   function abrirConvenio(id) {
     setConvenioAbierto((actual) => (actual === id ? null : id))
     setProyectoAbierto(null)
     setMetaAbierta(null)
-    setModoConvenio('arbol')
-    limpiarFiltrosLista()
   }
 
   function abrirProyecto(id) {
     setProyectoAbierto((actual) => (actual === id ? null : id))
     setMetaAbierta(null)
   }
+
+  const visitasTodas = vista === 'todas' ? todasLasVisitas() : []
+  const totalRealizadas = visitasTodas.filter((v) => v.foc.estado === 'realizada').length
+  const totalProgramadas = visitasTodas.filter((v) => v.foc.estado === 'programada').length
+  const totalPendientes = visitasTodas.filter((v) => v.foc.estado === 'pendiente').length
 
   return (
     <section className="vista">
@@ -179,16 +202,104 @@ export default function Focalizacion() {
           <option value="programada">Programada</option>
           <option value="realizada">Realizada</option>
         </select>
-        {(proyectoId || padrinoId || estado) && (
-          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setPadrinoId(''); setEstado('') }}>
+        <select className={municipio ? 'activo' : ''} value={municipio} onChange={(e) => setMunicipio(e.target.value)}>
+          <option value="">Todos los municipios</option>
+          {municipiosDisponibles.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+        <input
+          type="search"
+          placeholder="Buscar convenio, actividad, sede, padrino…"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+        {hayFiltro && (
+          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setPadrinoId(''); setEstado(''); setMunicipio(''); setBusqueda('') }}>
             Limpiar filtros
           </button>
         )}
       </div>
 
-      {conveniosConProyectos.length === 0 ? (
+      <div className="conmutador-vista">
+        <button
+          type="button"
+          className={vista === 'convenios' ? 'btn-primario' : ''}
+          onClick={() => setVista('convenios')}
+        >
+          Por convenio
+        </button>
+        <button
+          type="button"
+          className={vista === 'todas' ? 'btn-primario' : ''}
+          onClick={() => setVista('todas')}
+        >
+          Todas las visitas
+        </button>
+      </div>
+
+      {vista === 'todas' ? (
+        <>
+          <div className="kpis">
+            <div className="kpi"><strong>{visitasTodas.length}</strong><span>Visitas</span></div>
+            <div className="kpi"><strong style={{ color: 'var(--logrado)' }}>{totalRealizadas}</strong><span>Realizadas</span></div>
+            <div className="kpi"><strong style={{ color: 'var(--maduracion)' }}>{totalProgramadas}</strong><span>Programadas</span></div>
+            <div className="kpi"><strong>{totalPendientes}</strong><span>Pendientes</span></div>
+          </div>
+
+          {visitasTodas.length === 0 ? (
+            <Vacio>No hay visitas{hayFiltro ? ' que coincidan con los filtros' : ''}.</Vacio>
+          ) : (
+            <div className="tabla-envoltura">
+              <table className="tabla tabla-visitas">
+                <thead>
+                  <tr>
+                    <th>Convenio</th>
+                    <th>Proyecto</th>
+                    <th>Actividad</th>
+                    <th>Ubicación</th>
+                    <th>Padrino</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visitasTodas.map(({ foc, meta, proyecto, convenio, aliado }) => (
+                    <FilaFocalizacion
+                      key={foc.id}
+                      item={foc}
+                      padrinos={padrinos}
+                      ubicacionJunta
+                      celdasIniciales={(
+                        <>
+                          <td className="celda-ubicacion">
+                            <div>{convenio?.nombre || '—'}</div>
+                            <div className="celda-ubicacion-sub">{aliado?.nombre || ''}</div>
+                          </td>
+                          <td>
+                            <span className="etiqueta-proyecto" style={{ '--acento': colorPorId(proyecto?.id) }}>
+                              {proyecto?.nombre || '—'}
+                            </span>
+                          </td>
+                          <td>{meta?.descripcion || '—'}</td>
+                        </>
+                      )}
+                      onReasignar={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
+                      onProgramar={programar}
+                      onMarcarRealizada={marcarRealizada}
+                      onVolverPendiente={volverAPendiente}
+                      onEliminar={focalizacion.eliminarItem}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      ) : conveniosConProyectos.length === 0 ? (
         <Vacio>
-          No hay convenios con metas de focalización o visitas sin focalizar{proyectoId || padrinoId || estado ? ' que coincidan con los filtros' : ''}.
+          No hay convenios con metas de focalización o visitas sin focalizar{hayFiltro ? ' que coincidan con los filtros' : ''}.
         </Vacio>
       ) : (
         <div className="tabla-envoltura">
@@ -204,12 +315,6 @@ export default function Focalizacion() {
               {conveniosConProyectos.map(({ convenio, proyectos: proyectosDelConvenioActual }) => {
                 const convenioEstaAbierto = convenioAbierto === convenio.id
                 const aliado = aliados.datos.find((a) => String(a.id) === String(convenio.aliado_id))
-                const visitasLista = convenioEstaAbierto && modoConvenio === 'lista' ? visitasDelConvenio(convenio) : []
-                const municipiosLista = Array.from(new Set(visitasLista.map((v) => v.foc.municipio).filter(Boolean))).sort()
-                const visitasListaFiltrada = visitasLista.filter(({ foc, meta, proyecto }) => {
-                  if (municipioLista && foc.municipio !== municipioLista) return false
-                  return coincideBusqueda(busquedaLista, proyecto?.nombre, meta?.descripcion, foc.municipio, foc.institucion, foc.sede, nombrePadrino(foc.padrino_id))
-                })
 
                 return (
                   <Fragment key={convenio.id}>
@@ -225,91 +330,6 @@ export default function Focalizacion() {
                       <tr className="fila-panel">
                         <td colSpan={3}>
                           <div className="panel-acordeon">
-                            <div className="conmutador-vista">
-                              <button
-                                type="button"
-                                className={modoConvenio === 'arbol' ? 'btn-primario' : ''}
-                                onClick={() => { setModoConvenio('arbol'); limpiarFiltrosLista() }}
-                              >
-                                Por actividad
-                              </button>
-                              <button
-                                type="button"
-                                className={modoConvenio === 'lista' ? 'btn-primario' : ''}
-                                onClick={() => { setModoConvenio('lista'); limpiarFiltrosLista() }}
-                              >
-                                Todas las visitas
-                              </button>
-                            </div>
-                            {modoConvenio === 'lista' ? (
-                              visitasLista.length === 0 ? (
-                                <Vacio>No hay visitas que coincidan con los filtros.</Vacio>
-                              ) : (
-                                <>
-                                  <div className="filtros">
-                                    <select value={municipioLista} onChange={(e) => setMunicipioLista(e.target.value)}>
-                                      <option value="">Todos los municipios</option>
-                                      {municipiosLista.map((m) => (
-                                        <option key={m} value={m}>{m}</option>
-                                      ))}
-                                    </select>
-                                    <input
-                                      type="search"
-                                      placeholder="Buscar proyecto, actividad, municipio, institución, sede o padrino…"
-                                      value={busquedaLista}
-                                      onChange={(e) => setBusquedaLista(e.target.value)}
-                                    />
-                                    {(municipioLista || busquedaLista) && (
-                                      <button type="button" onClick={limpiarFiltrosLista}>Limpiar filtros</button>
-                                    )}
-                                  </div>
-                                  {visitasListaFiltrada.length === 0 ? (
-                                    <Vacio>Ninguna visita coincide con la búsqueda.</Vacio>
-                                  ) : (
-                                  <div className="tabla-envoltura">
-                                  <table className="tabla tabla-visitas">
-                                    <thead>
-                                      <tr>
-                                        <th>Proyecto</th>
-                                        <th>Actividad</th>
-                                        <th>Ubicación</th>
-                                        <th>Padrino</th>
-                                        <th>Estado</th>
-                                        <th>Acción</th>
-                                        <th></th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {visitasListaFiltrada.map(({ foc, meta, proyecto }) => (
-                                        <FilaFocalizacion
-                                          key={foc.id}
-                                          item={foc}
-                                          padrinos={padrinos}
-                                          ubicacionJunta
-                                          celdasIniciales={(
-                                            <>
-                                              <td>
-                                                <span className="etiqueta-proyecto" style={{ '--acento': colorPorId(proyecto?.id) }}>
-                                                  {proyecto?.nombre || '—'}
-                                                </span>
-                                              </td>
-                                              <td>{meta?.descripcion || '—'}</td>
-                                            </>
-                                          )}
-                                          onReasignar={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
-                                          onProgramar={programar}
-                                          onMarcarRealizada={marcarRealizada}
-                                          onVolverPendiente={volverAPendiente}
-                                          onEliminar={focalizacion.eliminarItem}
-                                        />
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                  </div>
-                                  )}
-                                </>
-                              )
-                            ) : (
                             <div className="lista-proyectos">
                               {proyectosDelConvenioActual.map(({ proyecto, metas: metasDelProyecto }) => {
                                 const proyectoEstaAbierto = proyectoAbierto === proyecto.id
@@ -422,7 +442,6 @@ export default function Focalizacion() {
                                 )
                               })}
                             </div>
-                            )}
                           </div>
                         </td>
                       </tr>
