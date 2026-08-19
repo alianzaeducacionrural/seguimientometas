@@ -4,6 +4,7 @@ import FilaFocalizacion from './FilaFocalizacion'
 import { AvisoError, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
 import { coincideBusqueda } from '../../utils/texto'
+import { coincidePadrinoFiltro } from '../../utils/padrino'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
@@ -44,7 +45,7 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
   )).sort()
   const itemsFiltrados = items.filter((i) => {
     // Filtros globales (padrino/estado) de la vista Focalización, si vienen.
-    if (filtroPadrino && String(i.padrino_id) !== String(filtroPadrino)) return false
+    if (!coincidePadrinoFiltro(i.padrino_id, filtroPadrino)) return false
     if (filtroEstado && i.estado !== filtroEstado) return false
     if (municipioFiltro && i.municipio !== municipioFiltro) return false
     if (institucionFiltro && i.institucion !== institucionFiltro) return false

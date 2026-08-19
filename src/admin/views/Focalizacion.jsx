@@ -8,6 +8,7 @@ import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
 import FilaFocalizacion from '../components/FilaFocalizacion'
 import { idsDeLista, ordenDeProyecto } from '../../utils/proyectos'
 import { coincideBusqueda } from '../../utils/texto'
+import { PADRINO_SIN_ASIGNAR, coincidePadrinoFiltro } from '../../utils/padrino'
 import { ejecutadoDe } from '../../utils/avance'
 import { colorAvance, colorPorId } from '../../utils/colores'
 import estilos from '../../components/TarjetaResumen.module.css'
@@ -73,7 +74,7 @@ export default function Focalizacion() {
 
   // ¿Una visita pasa los filtros globales? (proyecto se evalúa por la meta).
   function visitaCoincide(f, meta, proyecto, convenio, aliado) {
-    if (padrinoId && String(f.padrino_id) !== padrinoId) return false
+    if (!coincidePadrinoFiltro(f.padrino_id, padrinoId)) return false
     if (estado && f.estado !== estado) return false
     if (municipio && f.municipio !== municipio) return false
     return coincideBusqueda(busqueda, proyecto?.nombre, meta?.descripcion, convenio?.nombre, aliado?.nombre,
@@ -192,6 +193,7 @@ export default function Focalizacion() {
         </select>
         <select className={padrinoId ? 'activo' : ''} value={padrinoId} onChange={(e) => setPadrinoId(e.target.value)}>
           <option value="">Todos los padrinos</option>
+          <option value={PADRINO_SIN_ASIGNAR}>Sin asignar</option>
           {padrinos.map((p) => (
             <option key={p.id} value={String(p.id)}>{p.nombre}</option>
           ))}

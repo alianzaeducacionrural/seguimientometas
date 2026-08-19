@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import Flecha from '../../components/Flecha'
 import { hoy } from '../../utils/formato'
 import { coincideBusqueda } from '../../utils/texto'
+import { coincidePadrinoFiltro } from '../../utils/padrino'
 
 const SELECCION_VACIA = { municipio: '', institucion: '', sede: '' }
 
@@ -96,7 +97,7 @@ export default function PanelAsignacionesMeta({
   )).sort()
   const visitasFiltradas = visitas.filter((v) => {
     // Filtros globales (padrino/estado) de la vista Focalización, si vienen.
-    if (filtroPadrino && String(v.padrino_id) !== String(filtroPadrino)) return false
+    if (!coincidePadrinoFiltro(v.padrino_id, filtroPadrino)) return false
     if (filtroEstado && v.estado !== filtroEstado) return false
     if (municipioFiltro && v.municipio !== municipioFiltro) return false
     if (institucionFiltro && v.institucion !== institucionFiltro) return false
@@ -107,7 +108,7 @@ export default function PanelAsignacionesMeta({
   // La tabla de cuotas por padrino se acota solo por el filtro global de
   // padrino (una cuota no tiene estado, así que el filtro de estado no aplica).
   const asignacionesMostradas = filtroPadrino
-    ? asignacionesUnicas.filter((a) => String(a.padrino_id) === String(filtroPadrino))
+    ? asignacionesUnicas.filter((a) => coincidePadrinoFiltro(a.padrino_id, filtroPadrino))
     : asignacionesUnicas
 
   function abrirModalAsignar() {
