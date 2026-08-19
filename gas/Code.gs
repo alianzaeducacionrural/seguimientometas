@@ -385,31 +385,39 @@ function importarPadrinosCatalogo() {
   return { ok: true, creados, omitidos: catalogo.padrinos.length - creados };
 }
 
-// Inhabilita un profesional: lo marca activo='no' y deja "sin asignar" todas
-// sus visitas (focalizacion.padrino_id = '') y elimina sus cuotas
-// (asignaciones_sin_focalizacion), para que no siga contando como asignado ni
-// aparezca en las listas de asignables. Habilitar de nuevo es un simple editar
-// {activo:'si'} (no toca visitas — las que se soltaron ya quedaron libres).
+// Inhabilita un profesional: lo marca activo='no' y deja "sin asignar" sus
+// visitas PENDIENTES/PROGRAMADAS (focalizacion.padrino_id = ''), pero conserva
+// las ya REALIZADAS con su padrino como historial (queda registrado quién las
+// hizo). También elimina sus cuotas (asignaciones_sin_focalizacion), que son
+// trabajo futuro sin sentido sin dueño. Habilitar de nuevo es un simple editar
+// {activo:'si'} (no toca visitas).
 function inhabilitarUsuario(id) {
   if (!id) return { ok: false, error: 'Falta el id del usuario' };
 
   editarRegistro('usuarios', id, { activo: 'no' });
 
-  // Soltar sus visitas (focalizacion) de una sola escritura por columna.
+  // Soltar solo las visitas no realizadas (las realizadas se conservan).
   const hojaFoc = hojaDe(HOJAS.FOCALIZACION);
-  const colPad = ENCABEZADOS[HOJAS.FOCALIZACION].indexOf('padrino_id') + 1;
+  const enc = ENCABEZADOS[HOJAS.FOCALIZACION];
+  const colPad = enc.indexOf('padrino_id') + 1;
+  const colEst = enc.indexOf('estado') + 1;
   const lastRow = hojaFoc.getLastRow();
   let reasignadas = 0;
+  let conservadas = 0;
   if (lastRow >= 2) {
-    const rango = hojaFoc.getRange(2, colPad, lastRow - 1, 1);
-    const valores = rango.getValues();
-    for (let i = 0; i < valores.length; i++) {
-      if (String(valores[i][0]).trim() === String(id).trim()) {
-        valores[i][0] = '';
+    const rangoPad = hojaFoc.getRange(2, colPad, lastRow - 1, 1);
+    const pads = rangoPad.getValues();
+    const ests = hojaFoc.getRange(2, colEst, lastRow - 1, 1).getValues();
+    for (let i = 0; i < pads.length; i++) {
+      if (String(pads[i][0]).trim() !== String(id).trim()) continue;
+      if (String(ests[i][0]).trim().toLowerCase() === 'realizada') {
+        conservadas++;
+      } else {
+        pads[i][0] = '';
         reasignadas++;
       }
     }
-    if (reasignadas > 0) rango.setValues(valores);
+    if (reasignadas > 0) rangoPad.setValues(pads);
   }
 
   // Eliminar sus cuotas sin-focalizar (no tiene sentido conservarlas sin dueño).
@@ -417,7 +425,7 @@ function inhabilitarUsuario(id) {
     .filter(a => String(a.padrino_id).trim() === String(id).trim())
     .forEach(a => eliminarRegistro('asignaciones_sin_focalizacion', a.id));
 
-  return { ok: true, reasignadas };
+  return { ok: true, reasignadas, conservadas };
 }
 
 function mapaDeSetsAArrays(mapaDeSets) {

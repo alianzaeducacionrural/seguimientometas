@@ -33,7 +33,10 @@ export default function Usuarios() {
     try {
       const r = await inhabilitarUsuario(u.id)
       await usuarios.recargar()
-      setResultadoImport(`${u.nombre} quedó inhabilitado${r.reasignadas ? ` — ${r.reasignadas} visita(s) quedaron sin asignar` : ''}.`)
+      const partes = []
+      if (r.reasignadas) partes.push(`${r.reasignadas} visita(s) quedaron sin asignar`)
+      if (r.conservadas) partes.push(`${r.conservadas} realizada(s) se conservaron`)
+      setResultadoImport(`${u.nombre} quedó inhabilitado${partes.length ? ` — ${partes.join('; ')}` : ''}.`)
     } catch (err) {
       setResultadoImport(`Error: ${err.message}`)
     }
