@@ -36,7 +36,8 @@ export default function ActividadesPadrino() {
   if (usuarios.error) return <AvisoError>Error: {usuarios.error}</AvisoError>
 
   // Padrinos y líderes: una visita se le puede asignar a cualquiera de los dos.
-  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino' || u.rol === 'lider')
+  // Los inhabilitados no aparecen (no reciben nuevas asignaciones).
+  const padrinos = usuarios.datos.filter((u) => (u.rol === 'padrino' || u.rol === 'lider') && String(u.activo).trim().toLowerCase() !== 'no')
   if (padrinos.length === 0) {
     return (
       <section className="vista">

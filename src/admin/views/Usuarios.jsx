@@ -3,7 +3,7 @@ import useEntidad from '../hooks/useEntidad'
 import useCatalogoPadrinos from '../hooks/useCatalogoPadrinos'
 import TablaCrud from '../components/TablaCrud'
 import EnlaceMagico from '../components/EnlaceMagico'
-import { importarPadrinos } from '../utils/api'
+import { importarPadrinos, inhabilitarUsuario } from '../utils/api'
 import { AvisoError, Cargando } from '../../components/Estado'
 import Avatar from '../../components/Avatar'
 import { nombresProyectosDe } from '../../utils/proyectos'
@@ -24,6 +24,30 @@ export default function Usuarios() {
 
   const [importando, setImportando] = useState(false)
   const [resultadoImport, setResultadoImport] = useState(null)
+
+  const estaInactivo = (u) => String(u.activo).trim().toLowerCase() === 'no'
+
+  async function inhabilitar(u) {
+    if (!confirm(`¿Inhabilitar a ${u.nombre}? Sus visitas asignadas quedarán "sin asignar".`)) return
+    setResultadoImport(null)
+    try {
+      const r = await inhabilitarUsuario(u.id)
+      await usuarios.recargar()
+      setResultadoImport(`${u.nombre} quedó inhabilitado${r.reasignadas ? ` — ${r.reasignadas} visita(s) quedaron sin asignar` : ''}.`)
+    } catch (err) {
+      setResultadoImport(`Error: ${err.message}`)
+    }
+  }
+
+  async function habilitar(u) {
+    setResultadoImport(null)
+    try {
+      await usuarios.editarItem(u.id, { activo: 'si' })
+      setResultadoImport(`${u.nombre} quedó habilitado de nuevo.`)
+    } catch (err) {
+      setResultadoImport(`Error: ${err.message}`)
+    }
+  }
 
   if (usuarios.cargando || proyectos.cargando || catalogo.cargando) return <Cargando />
   if (usuarios.error) return <AvisoError>Error: {usuarios.error}</AvisoError>
@@ -54,16 +78,18 @@ export default function Usuarios() {
       label: 'Nombre',
       tipo: 'text',
       requerido: true,
-      opcionesSi: (form) =>
+      // Texto libre (permite crear a mano) con sugerencias del catálogo de
+      // padrinos: se puede elegir uno o escribir uno nuevo.
+      sugerencias: (form) =>
         form.rol === 'padrino' && catalogo.padrinos.length > 0
-          ? catalogo.padrinos.map((p) => ({ value: p.nombre, label: p.nombre }))
+          ? catalogo.padrinos.map((p) => ({ value: p.nombre }))
           : null,
       alCambiar: (nombre) => {
         const padrino = catalogo.padrinos.find((p) => p.nombre === nombre)
         return padrino ? { correo: padrino.correo } : {}
       },
       columna: (fila) => (
-        <span className="celda-persona">
+        <span className="celda-persona" style={estaInactivo(fila) ? { opacity: 0.5 } : undefined}>
           <Avatar id={fila.id} nombre={fila.nombre} tamano={28} />
           {fila.nombre}
         </span>
@@ -103,6 +129,17 @@ export default function Usuarios() {
         campos={campos}
         columnasExtra={[
           { label: 'Enlace', render: (fila) => <EnlaceMagico rol={fila.rol} token={fila.token} /> },
+          {
+            label: 'Estado',
+            render: (fila) => (estaInactivo(fila) ? (
+              <span className="celda-acciones">
+                <span className="insignia insignia-neutra">Inhabilitado</span>{' '}
+                <button type="button" onClick={() => habilitar(fila)}>Habilitar</button>
+              </span>
+            ) : (
+              <button type="button" className="btn-peligro" onClick={() => inhabilitar(fila)}>Inhabilitar</button>
+            )),
+          },
         ]}
         filas={usuarios.datos}
         onCrear={usuarios.crearItem}

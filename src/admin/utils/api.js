@@ -40,3 +40,9 @@ export function eliminar(entidad, id) {
 export function importarPadrinos() {
   return apiPost({ accion: 'importarPadrinos' })
 }
+
+// Inhabilita un profesional: lo marca inactivo y deja "sin asignar" sus
+// visitas (y elimina sus cuotas). Devuelve { ok, reasignadas }.
+export function inhabilitarUsuario(id) {
+  return apiPost({ accion: 'inhabilitarUsuario', id })
+}

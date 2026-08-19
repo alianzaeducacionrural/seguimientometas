@@ -41,7 +41,8 @@ export default function VisitasSede() {
   const convenioPorId = Object.fromEntries(convenios.datos.map((c) => [String(c.id), c]))
   const padrinoPorId = Object.fromEntries(usuarios.datos.map((u) => [String(u.id), u]))
   // Padrinos y líderes: cualquiera de los dos puede aparecer como visitante.
-  const padrinos = usuarios.datos.filter((u) => u.rol === 'padrino' || u.rol === 'lider')
+  // Los inhabilitados no se ofrecen en el filtro (ya no tienen visitas).
+  const padrinos = usuarios.datos.filter((u) => (u.rol === 'padrino' || u.rol === 'lider') && String(u.activo).trim().toLowerCase() !== 'no')
 
   const filas = focalizacion.datos.map((f) => {
     const meta = metaPorId[String(f.meta_id)]

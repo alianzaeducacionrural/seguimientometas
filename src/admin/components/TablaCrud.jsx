@@ -273,6 +273,11 @@ export default function TablaCrud({
               )
             }
 
+            // Un campo de texto puede ofrecer sugerencias (datalist) sin dejar
+            // de admitir texto libre — p.ej. el nombre de un padrino: se puede
+            // elegir del catálogo o escribir uno manual.
+            const sugerencias = campo.sugerencias ? campo.sugerencias(form) : null
+            const listaId = sugerencias ? `dl-${campo.clave}` : undefined
             return (
               <label key={campo.clave} className="campo">
                 <span>{campo.label}</span>
@@ -281,8 +286,18 @@ export default function TablaCrud({
                   placeholder={campo.label}
                   required={campo.requerido}
                   value={form[campo.clave]}
-                  onChange={(e) => actualizarCampo(campo.clave, e.target.value)}
+                  list={listaId}
+                  onChange={(e) => actualizarCampo(
+                    campo.clave,
+                    e.target.value,
+                    campo.alCambiar ? campo.alCambiar(e.target.value) : undefined,
+                  )}
                 />
+                {sugerencias && (
+                  <datalist id={listaId}>
+                    {sugerencias.map((s) => <option key={s.value} value={s.value} />)}
+                  </datalist>
+                )}
               </label>
             )
           })}

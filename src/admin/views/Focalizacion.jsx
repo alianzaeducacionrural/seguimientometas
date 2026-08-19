@@ -49,7 +49,7 @@ export default function Focalizacion() {
 
   // Padrinos y líderes: una visita se le puede asignar a cualquiera de los dos.
   const padrinos = usuarios.datos
-    .filter((u) => u.rol === 'padrino' || u.rol === 'lider')
+    .filter((u) => (u.rol === 'padrino' || u.rol === 'lider') && String(u.activo).trim().toLowerCase() !== 'no')
     .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
   const nombrePadrino = (id) => padrinos.find((p) => String(p.id) === String(id))?.nombre || ''
   const { programar, marcarRealizada, volverAPendiente } = accionesEstadoFocalizacion(focalizacion.editarItem)

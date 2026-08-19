@@ -49,8 +49,11 @@ const ENCABEZADOS = {
   [HOJAS.AVANCES_MANUALES]: [
     'id', 'meta_id', 'cantidad', 'fecha',
   ],
+  // 'activo': '' o 'si' → habilitado; 'no' → inhabilitado (se le quitan las
+  // visitas asignadas y no aparece como asignable). Columna al final para que
+  // asegurarEsquema la agregue sin migración sobre las filas existentes.
   [HOJAS.USUARIOS]: [
-    'id', 'nombre', 'correo', 'rol', 'proyectos_ids', 'token',
+    'id', 'nombre', 'correo', 'rol', 'proyectos_ids', 'token', 'activo',
   ],
 };
 
@@ -103,6 +106,7 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     if (body.accion === 'importarPadrinos') return responder(importarPadrinosCatalogo());
+    if (body.accion === 'inhabilitarUsuario') return responder(inhabilitarUsuario(body.id));
     if (body.accion === 'crear') return responder(crearRegistro(body.entidad, body.datos || {}));
     if (body.accion === 'editar') return responder(editarRegistro(body.entidad, body.id, body.datos || {}));
     if (body.accion === 'eliminar') return responder(eliminarRegistro(body.entidad, body.id));
@@ -381,6 +385,41 @@ function importarPadrinosCatalogo() {
   return { ok: true, creados, omitidos: catalogo.padrinos.length - creados };
 }
 
+// Inhabilita un profesional: lo marca activo='no' y deja "sin asignar" todas
+// sus visitas (focalizacion.padrino_id = '') y elimina sus cuotas
+// (asignaciones_sin_focalizacion), para que no siga contando como asignado ni
+// aparezca en las listas de asignables. Habilitar de nuevo es un simple editar
+// {activo:'si'} (no toca visitas — las que se soltaron ya quedaron libres).
+function inhabilitarUsuario(id) {
+  if (!id) return { ok: false, error: 'Falta el id del usuario' };
+
+  editarRegistro('usuarios', id, { activo: 'no' });
+
+  // Soltar sus visitas (focalizacion) de una sola escritura por columna.
+  const hojaFoc = hojaDe(HOJAS.FOCALIZACION);
+  const colPad = ENCABEZADOS[HOJAS.FOCALIZACION].indexOf('padrino_id') + 1;
+  const lastRow = hojaFoc.getLastRow();
+  let reasignadas = 0;
+  if (lastRow >= 2) {
+    const rango = hojaFoc.getRange(2, colPad, lastRow - 1, 1);
+    const valores = rango.getValues();
+    for (let i = 0; i < valores.length; i++) {
+      if (String(valores[i][0]).trim() === String(id).trim()) {
+        valores[i][0] = '';
+        reasignadas++;
+      }
+    }
+    if (reasignadas > 0) rango.setValues(valores);
+  }
+
+  // Eliminar sus cuotas sin-focalizar (no tiene sentido conservarlas sin dueño).
+  listarFilas(HOJAS.ASIGNACIONES_SIN_FOCALIZACION)
+    .filter(a => String(a.padrino_id).trim() === String(id).trim())
+    .forEach(a => eliminarRegistro('asignaciones_sin_focalizacion', a.id));
+
+  return { ok: true, reasignadas };
+}
+
 function mapaDeSetsAArrays(mapaDeSets) {
   const resultado = {};
   Object.keys(mapaDeSets).forEach(clave => {
@@ -459,7 +498,7 @@ function getLiderConvenios(token) {
   // a quien todavía no tiene carga. Solo id+nombre — no necesita ver correo
   // ni token de nadie más.
   const padrinos = todosUsuarios
-    .filter(u => u.rol === 'padrino' || u.rol === 'lider')
+    .filter(u => (u.rol === 'padrino' || u.rol === 'lider') && String(u.activo).trim().toLowerCase() !== 'no')
     .map(u => ({ id: u.id, nombre: u.nombre }));
 
   // Las visitas propias del líder (como visitante asignado, no como quien
