@@ -21,19 +21,28 @@ export default function useEntidad(entidad) {
     recargar()
   }, [recargar])
 
+  // Todas las mutaciones aplican el cambio a la lista local en cuanto el
+  // servidor confirma (respuesta {ok:true}), y solo DESPUÉS relanzan un GET
+  // para reconciliar. Antes se dependía de ese GET para ver el cambio: si
+  // GAS respondía lento o con un error transitorio al recargar, la fila
+  // borrada "reaparecía" aunque el borrado sí se hubiera hecho. Con la
+  // actualización optimista el GET de reconciliación es best-effort.
   async function crearItem(campos) {
-    await crear(entidad, campos)
-    await recargar()
+    const r = await crear(entidad, campos)
+    if (r && r.datos) setDatos((d) => [...d, r.datos])
+    recargar().catch(() => {})
   }
 
   async function editarItem(id, campos) {
     await editar(entidad, id, campos)
-    await recargar()
+    setDatos((d) => d.map((x) => (String(x.id) === String(id) ? { ...x, ...campos } : x)))
+    recargar().catch(() => {})
   }
 
   async function eliminarItem(id) {
     await eliminar(entidad, id)
-    await recargar()
+    setDatos((d) => d.filter((x) => String(x.id) !== String(id)))
+    recargar().catch(() => {})
   }
 
   return { datos, cargando, error, crearItem, editarItem, eliminarItem, recargar }
