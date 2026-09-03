@@ -1,5 +1,24 @@
 const GAS_URL = import.meta.env.VITE_GAS_URL
 
+// GAS a veces responde con una página HTML en vez del JSON esperado (error
+// transitorio de Google, cuota agotada, sesión caducada, mantenimiento). Si
+// eso pasa, res.json() lanza un SyntaxError críptico ("Unexpected token '<'")
+// y la operación falla en silencio. Leemos el texto y damos un mensaje claro.
+async function leerRespuesta(res) {
+  const texto = await res.text()
+  let datos
+  try {
+    datos = JSON.parse(texto)
+  } catch {
+    throw new Error(
+      'El servidor no respondió correctamente (puede ser una caída momentánea de Google). '
+      + 'Espera unos segundos y vuelve a intentarlo.',
+    )
+  }
+  if (!datos.ok) throw new Error(datos.error || 'Error desconocido')
+  return datos
+}
+
 async function apiPost(body) {
   const res = await fetch(GAS_URL, {
     method: 'POST',
@@ -7,9 +26,7 @@ async function apiPost(body) {
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(body),
   })
-  const datos = await res.json()
-  if (!datos.ok) throw new Error(datos.error || 'Error desconocido')
-  return datos
+  return leerRespuesta(res)
 }
 
 export async function apiGet(action, params = {}) {
@@ -18,9 +35,7 @@ export async function apiGet(action, params = {}) {
   Object.entries(params).forEach(([clave, valor]) => url.searchParams.set(clave, valor))
 
   const res = await fetch(url)
-  const datos = await res.json()
-  if (!datos.ok) throw new Error(datos.error || 'Error desconocido')
-  return datos
+  return leerRespuesta(res)
 }
 
 export function crear(entidad, datos) {

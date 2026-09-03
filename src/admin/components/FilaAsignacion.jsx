@@ -18,6 +18,20 @@ export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuard
     setGuardando(true)
     try {
       await onGuardar(item.id, { cantidad_asignada: asignada })
+    } catch (err) {
+      alert(`No se pudo guardar: ${err.message}`)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function eliminar() {
+    if (!confirm('¿Eliminar esta asignación?')) return
+    setGuardando(true)
+    try {
+      await onEliminar(item.id)
+    } catch (err) {
+      alert(`No se pudo eliminar: ${err.message}`)
     } finally {
       setGuardando(false)
     }
@@ -35,9 +49,10 @@ export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuard
         <button
           type="button"
           className="btn-peligro"
-          onClick={() => confirm('¿Eliminar esta asignación?') && onEliminar(item.id)}
+          disabled={guardando}
+          onClick={eliminar}
         >
-          Eliminar
+          {guardando ? 'Eliminando…' : 'Eliminar'}
         </button>
       </td>
     </tr>

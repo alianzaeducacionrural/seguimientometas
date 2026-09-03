@@ -202,7 +202,9 @@ export default function PanelAsignacionesMeta({
         }
       }
     }
-    reconciliar()
+    // Sincronización en segundo plano: si falla (p.ej. caída momentánea de
+    // GAS) no molestamos al usuario, el efecto reintenta al próximo cambio.
+    reconciliar().catch(() => {})
     return () => { cancelado = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta.id, firmaConteo, firmaAsignaciones])

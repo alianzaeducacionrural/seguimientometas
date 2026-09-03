@@ -20,6 +20,20 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
       if (conFecha) await accion(item.id, fecha)
       else await accion(item.id)
       setCorrigiendo(false)
+    } catch (err) {
+      alert(`No se pudo completar la acción: ${err.message}`)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function eliminar() {
+    if (!confirm('¿Eliminar esta focalización?')) return
+    setGuardando(true)
+    try {
+      await onEliminar(item.id)
+    } catch (err) {
+      alert(`No se pudo eliminar: ${err.message}`)
     } finally {
       setGuardando(false)
     }
@@ -97,9 +111,10 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
         <button
           type="button"
           className="btn-peligro"
-          onClick={() => confirm('¿Eliminar esta focalización?') && onEliminar(item.id)}
+          disabled={guardando}
+          onClick={eliminar}
         >
-          Eliminar
+          {guardando ? 'Eliminando…' : 'Eliminar'}
         </button>
       </td>
     </tr>
