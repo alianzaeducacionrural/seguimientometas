@@ -381,7 +381,6 @@ export default function PanelAsignacionesMeta({
                       <th>Padrino</th>
                       <th>Estado</th>
                       <th>Acción</th>
-                      <th></th>
                     </tr>
                   </thead>
                   <tbody>

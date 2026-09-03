@@ -169,7 +169,6 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
                 <th>Padrino</th>
                 <th>Estado</th>
                 <th>Acción</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>

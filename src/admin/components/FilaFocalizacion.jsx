@@ -72,50 +72,55 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
       </td>
       <td><EstadoFocalizacion estado={item.estado} /></td>
       <td>
-        {item.estado === 'pendiente' && (
-          <>
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />{' '}
-            <button type="button" disabled={guardando} onClick={() => ejecutar(onProgramar)}>Programar</button>{' '}
-            <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Marcar realizada</button>
-          </>
-        )}
-        {item.estado === 'programada' && (
-          <>
-            <span>Programada: {formatearFecha(item.fecha_programada)}</span><br />
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />{' '}
-            <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Marcar realizada</button>{' '}
-            <button type="button" className="btn-peligro" disabled={guardando} onClick={() => ejecutar(onVolverPendiente, false)}>
-              Volver a pendiente
-            </button>
-          </>
-        )}
-        {item.estado === 'realizada' && (
-          corrigiendo ? (
+        {/* Todas las acciones (incl. Eliminar) van en la misma celda y
+            envuelven: antes Eliminar estaba en una columna aparte al final
+            que, en los paneles embebidos (Focalización → por convenio), se
+            salía del ancho visible con estados "programada"/"realizada" y
+            parecía que no se podía borrar. */}
+        <div className="acciones-foco">
+          {item.estado === 'pendiente' && (
             <>
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />{' '}
-              <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Guardar fecha</button>{' '}
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+              <button type="button" disabled={guardando} onClick={() => ejecutar(onProgramar)}>Programar</button>
+              <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Marcar realizada</button>
+            </>
+          )}
+          {item.estado === 'programada' && (
+            <>
+              <span className="acciones-foco__nota">Programada: {formatearFecha(item.fecha_programada)}</span>
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+              <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Marcar realizada</button>
               <button type="button" className="btn-peligro" disabled={guardando} onClick={() => ejecutar(onVolverPendiente, false)}>
                 Volver a pendiente
-              </button>{' '}
-              <button type="button" disabled={guardando} onClick={() => setCorrigiendo(false)}>Cancelar</button>
+              </button>
             </>
-          ) : (
-            <>
-              <span>Realizada: {formatearFecha(item.fecha_realizada)}</span>{' '}
-              <button type="button" onClick={abrirCorreccion}>Corregir</button>
-            </>
-          )
-        )}
-      </td>
-      <td className="celda-acciones">
-        <button
-          type="button"
-          className="btn-peligro"
-          disabled={guardando}
-          onClick={eliminar}
-        >
-          {guardando ? 'Eliminando…' : 'Eliminar'}
-        </button>
+          )}
+          {item.estado === 'realizada' && (
+            corrigiendo ? (
+              <>
+                <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Guardar fecha</button>
+                <button type="button" className="btn-peligro" disabled={guardando} onClick={() => ejecutar(onVolverPendiente, false)}>
+                  Volver a pendiente
+                </button>
+                <button type="button" disabled={guardando} onClick={() => setCorrigiendo(false)}>Cancelar</button>
+              </>
+            ) : (
+              <>
+                <span className="acciones-foco__nota">Realizada: {formatearFecha(item.fecha_realizada)}</span>
+                <button type="button" onClick={abrirCorreccion}>Corregir</button>
+              </>
+            )
+          )}
+          <button
+            type="button"
+            className="btn-peligro"
+            disabled={guardando}
+            onClick={eliminar}
+          >
+            {guardando ? 'Eliminando…' : 'Eliminar'}
+          </button>
+        </div>
       </td>
     </tr>
   )

@@ -565,6 +565,28 @@ input::placeholder {
   white-space: nowrap;
 }
 
+/* Celda de acciones de una fila de focalización (programar / marcar
+   realizada / volver a pendiente / eliminar). Todo junto y envolviendo,
+   con un ancho tope, para que el botón Eliminar quede siempre visible
+   aunque el panel esté embebido y angosto. */
+.acciones-foco {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 22rem;
+}
+
+.acciones-foco input[type='date'] {
+  min-width: 8.5rem;
+}
+
+.acciones-foco__nota {
+  flex-basis: 100%;
+  color: var(--tinta-3);
+  font-size: 0.82em;
+}
+
 /* ---------- Filas acordeón (panel expandible bajo la fila) ---------- */
 
 .fila-expandible {
