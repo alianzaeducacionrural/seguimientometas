@@ -198,6 +198,12 @@ function crearRegistro(entidad, datos) {
     encabezados.forEach((campo, i) => {
       escribirValor(hoja, filaIndex, i + 1, campo, registro[campo] !== undefined ? registro[campo] : '');
     });
+    // Sin flush, la escritura queda en el buffer de cambios pendientes del
+    // script y no siempre se confirma como "commiteada" antes de que la
+    // respuesta HTTP salga — una lectura inmediata después (p.ej. el GET de
+    // recargar() del cliente, o incluso otra ejecución concurrente) puede
+    // no verla todavía.
+    SpreadsheetApp.flush();
 
     return { ok: true, datos: registro };
   } finally {
@@ -231,6 +237,7 @@ function editarRegistro(entidad, id, cambios) {
         escribirValor(hoja, fila, i + 1, campo, cambios[campo]);
       }
     });
+    SpreadsheetApp.flush(); // ver comentario igual en crearRegistro
 
     return { ok: true };
   } finally {
@@ -277,7 +284,30 @@ function eliminarRegistro(entidad, id) {
       return { ok: false, error: 'No se pudo verificar la fila a eliminar, intenta de nuevo' };
     }
 
+    // Si la hoja tiene un filtro básico activo (alguien lo dejó puesto
+    // viendo el Sheets directamente), deleteRow() en una fila tapada por
+    // ese filtro puede no hacer nada — sin lanzar error y sin borrar nada,
+    // que es justo el bug que se vio en producción (el "eliminar" volvía a
+    // aparecer la fila al recargar). Quitarlo antes de borrar es el arreglo
+    // documentado para esto; el filtro es solo una conveniencia de quien lo
+    // puso, no algo de lo que dependa la app.
+    const filtro = hoja.getFilter();
+    if (filtro) filtro.remove();
+
     hoja.deleteRow(fila);
+    // Sin flush, deleteRow() puede no quedar "commiteado" todavía cuando la
+    // respuesta sale — una lectura inmediata después (el GET de recargar()
+    // del cliente, o GET directo) puede seguir viendo la fila.
+    SpreadsheetApp.flush();
+
+    // Verificación final: confirma que el id realmente ya no está, en vez
+    // de confiar en que deleteRow() no haya lanzado una excepción. Si por
+    // lo que sea sigue ahí, se avisa con un error real en vez de devolver
+    // {ok:true} de mentira.
+    if (encontrarFilaPorId(hoja, id)) {
+      return { ok: false, error: 'La fila no se pudo eliminar, intenta de nuevo' };
+    }
+
     return { ok: true };
   } finally {
     lock.releaseLock();
