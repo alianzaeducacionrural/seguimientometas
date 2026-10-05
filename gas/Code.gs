@@ -211,17 +211,31 @@ function editarRegistro(entidad, id, cambios) {
 
   const hoja = hojaDe(nombreHoja);
   const encabezados = ENCABEZADOS[nombreHoja];
-  const fila = encontrarFilaPorId(hoja, id);
-  if (!fila) return { ok: false, error: 'No encontrado' };
 
-  encabezados.forEach((campo, i) => {
-    if (campo === 'id' || campo === 'token') return;
-    if (cambios[campo] !== undefined) {
-      escribirValor(hoja, fila, i + 1, campo, cambios[campo]);
-    }
-  });
+  // Mismo motivo que el lock de crearRegistro: encontrarFilaPorId (leer en
+  // qué fila física vive el id) y escribir en esa fila son dos pasos
+  // separados. Sin lock, una escritura o un borrado concurrentes sobre la
+  // MISMA hoja (dos pestañas, un líder y el admin a la vez, el efecto de
+  // reconciliación de PanelAsignacionesMeta) pueden mover filas entre esos
+  // dos pasos — el índice que calculamos deja de corresponder al id, y se
+  // termina editando una fila distinta de la que se pidió.
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const fila = encontrarFilaPorId(hoja, id);
+    if (!fila) return { ok: false, error: 'No encontrado' };
 
-  return { ok: true };
+    encabezados.forEach((campo, i) => {
+      if (campo === 'id' || campo === 'token') return;
+      if (cambios[campo] !== undefined) {
+        escribirValor(hoja, fila, i + 1, campo, cambios[campo]);
+      }
+    });
+
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Campos "*_ids" (proyectos_ids, lideres_ids) guardan listas separadas por
@@ -240,11 +254,34 @@ function eliminarRegistro(entidad, id) {
   if (!nombreHoja) return { ok: false, error: 'Entidad no válida' };
 
   const hoja = hojaDe(nombreHoja);
-  const fila = encontrarFilaPorId(hoja, id);
-  if (!fila) return { ok: false, error: 'No encontrado' };
 
-  hoja.deleteRow(fila);
-  return { ok: true };
+  // Sin lock, encontrarFilaPorId (leer la fila N) y deleteRow(N) son dos
+  // pasos separados: si otra operación concurrente sobre esta misma hoja
+  // borra o mueve filas justo entre esos dos pasos, el índice N ya no
+  // apunta a la fila que buscábamos y deleteRow(N) borra la fila
+  // equivocada — la que el usuario pidió borrar sigue ahí (reaparece al
+  // recargar) y una fila distinta desaparece sin que nadie lo haya pedido.
+  // Con varias personas usando la app a la vez esto deja de ser teórico.
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const fila = encontrarFilaPorId(hoja, id);
+    if (!fila) return { ok: false, error: 'No encontrado' };
+
+    // Verificación de defensa: confirma que la fila que vamos a borrar es
+    // realmente la del id pedido (debería serlo siempre bajo el lock, pero
+    // es una red de seguridad barata contra cualquier otra causa de
+    // desalineación).
+    const idEnFila = String(hoja.getRange(fila, 1).getValue()).trim();
+    if (idEnFila !== String(id).trim()) {
+      return { ok: false, error: 'No se pudo verificar la fila a eliminar, intenta de nuevo' };
+    }
+
+    hoja.deleteRow(fila);
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function encontrarFilaPorId(hoja, id) {
