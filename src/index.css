@@ -290,6 +290,11 @@ a:hover {
   max-width: 62ch;
 }
 
+.dialogo-mensaje {
+  white-space: pre-line;
+  max-width: none;
+}
+
 .miga {
   display: inline-block;
   margin: 0 0 0.75rem;

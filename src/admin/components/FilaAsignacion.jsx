@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Spinner from '../../components/Spinner'
+import { avisar, confirmar } from '../../utils/dialogos'
 
 // Cantidad asignada (la cuota) es editable inline; cantidad realizada ya no
 // se escribe a mano — la calcula quien usa esta fila contando las visitas
@@ -22,7 +23,7 @@ export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuard
     try {
       await onGuardar(item.id, { cantidad_asignada: asignada })
     } catch (err) {
-      alert(`No se pudo guardar: ${err.message}`)
+      await avisar(`No se pudo guardar: ${err.message}`)
     } finally {
       setGuardando(false)
       setAccionEnCurso('')
@@ -30,13 +31,13 @@ export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuard
   }
 
   async function eliminar() {
-    if (!confirm('¿Eliminar esta asignación?')) return
+    if (!(await confirmar('¿Eliminar esta asignación?'))) return
     setAccionEnCurso('Eliminando…')
     setGuardando(true)
     try {
       await onEliminar(item.id)
     } catch (err) {
-      alert(`No se pudo eliminar: ${err.message}`)
+      await avisar(`No se pudo eliminar: ${err.message}`)
       setGuardando(false)
       setAccionEnCurso('')
     }

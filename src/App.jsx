@@ -3,6 +3,7 @@ import Home from './Home'
 import AdminApp from './admin/AdminApp'
 import LiderPanel from './lider/LiderPanel'
 import PadrinoPanel from './padrino/PadrinoPanel'
+import DialogosGlobales from './components/DialogosGlobales'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/lider" element={<LiderPanel />} />
         <Route path="/padrino" element={<PadrinoPanel />} />
       </Routes>
+      <DialogosGlobales />
     </BrowserRouter>
   )
 }

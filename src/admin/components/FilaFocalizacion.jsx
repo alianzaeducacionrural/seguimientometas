@@ -2,6 +2,7 @@ import { useState } from 'react'
 import EstadoFocalizacion from '../../components/EstadoFocalizacion'
 import Spinner from '../../components/Spinner'
 import { formatearFecha, hoy, soloFecha } from '../../utils/formato'
+import { avisar, confirmar } from '../../utils/dialogos'
 
 // Una fila de focalización: reasignar padrino es inmediato; programar,
 // marcar realizada y volver a pendiente piden confirmación (fecha o
@@ -27,7 +28,7 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
       else await accion(item.id)
       setCorrigiendo(false)
     } catch (err) {
-      alert(`No se pudo completar la acción: ${err.message}`)
+      await avisar(`No se pudo completar la acción: ${err.message}`)
     } finally {
       setGuardando(false)
       setAccionEnCurso('')
@@ -40,7 +41,7 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
     try {
       await onReasignar(item.id, nuevoPadrinoId)
     } catch (err) {
-      alert(`No se pudo reasignar: ${err.message}`)
+      await avisar(`No se pudo reasignar: ${err.message}`)
     } finally {
       setGuardando(false)
       setAccionEnCurso('')
@@ -48,13 +49,13 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
   }
 
   async function eliminar() {
-    if (!confirm('¿Eliminar esta focalización?')) return
+    if (!(await confirmar('¿Eliminar esta focalización?'))) return
     setAccionEnCurso('Eliminando…')
     setGuardando(true)
     try {
       await onEliminar(item.id)
     } catch (err) {
-      alert(`No se pudo eliminar: ${err.message}`)
+      await avisar(`No se pudo eliminar: ${err.message}`)
       setGuardando(false)
       setAccionEnCurso('')
     }

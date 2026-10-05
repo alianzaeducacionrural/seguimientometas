@@ -3,6 +3,7 @@ import TarjetaVisitaFocalizacion from './TarjetaVisitaFocalizacion'
 import Modal from './Modal'
 import Spinner from './Spinner'
 import { formatearFecha, hoy } from '../utils/formato'
+import { avisar } from '../utils/dialogos'
 
 // Una visita focalizada editable: envuelve la tarjeta de solo lectura
 // compartida y le agrega los botones de Reasignar/Cambiar estado (cada uno
@@ -31,7 +32,7 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
       await onReasignar(item.id, nuevoPadrinoId)
       setModalAbierto(false)
     } catch (err) {
-      alert(`No se pudo reasignar: ${err.message}`)
+      await avisar(`No se pudo reasignar: ${err.message}`)
     } finally {
       setGuardando(false)
     }
@@ -50,7 +51,7 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
       else if (nuevoEstado === 'pendiente') await onVolverPendiente(item.id)
       setModalEstadoAbierto(false)
     } catch (err) {
-      alert(`No se pudo cambiar el estado: ${err.message}`)
+      await avisar(`No se pudo cambiar el estado: ${err.message}`)
     } finally {
       setGuardandoEstado(false)
     }

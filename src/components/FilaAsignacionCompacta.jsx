@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Spinner from './Spinner'
+import { avisar } from '../utils/dialogos'
 
 // Una cuota sin focalizar (sin sede fija), con su propio reasignar — no
 // tiene visitas individuales que listar, solo el agregado asignada/realizada.
@@ -17,7 +18,7 @@ export default function FilaAsignacionCompacta({ item, padrinos, realizadas, onR
     try {
       await onReasignar(item.id, nuevoPadrinoId)
     } catch (err) {
-      alert(`No se pudo reasignar: ${err.message}`)
+      await avisar(`No se pudo reasignar: ${err.message}`)
     } finally {
       setGuardando(false)
     }

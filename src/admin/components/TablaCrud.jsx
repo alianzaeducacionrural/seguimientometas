@@ -4,6 +4,7 @@ import { AvisoError } from '../../components/Estado'
 import Modal from '../../components/Modal'
 import Flecha from '../../components/Flecha'
 import Spinner from '../../components/Spinner'
+import { avisar, confirmar } from '../../utils/dialogos'
 
 const VACIO_POR_TIPO = { text: '', date: '', number: '', select: '', multiselect: [] }
 
@@ -109,13 +110,13 @@ export default function TablaCrud({
   }
 
   async function eliminarFila(id) {
-    if (!confirm('¿Eliminar este registro?')) return
+    if (!(await confirmar('¿Eliminar este registro?'))) return
     setEliminandoId(id)
     try {
       await onEliminar(id)
     } catch (err) {
       setError(err.message)
-      alert(`No se pudo eliminar: ${err.message}`)
+      await avisar(`No se pudo eliminar: ${err.message}`)
     } finally {
       setEliminandoId(null)
     }

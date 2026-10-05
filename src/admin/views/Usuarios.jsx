@@ -7,6 +7,7 @@ import { importarPadrinos, inhabilitarUsuario } from '../utils/api'
 import { AvisoError, Cargando } from '../../components/Estado'
 import Avatar from '../../components/Avatar'
 import { nombresProyectosDe } from '../../utils/proyectos'
+import { confirmar } from '../../utils/dialogos'
 
 const ROLES = [
   { value: 'admin', label: 'Admin' },
@@ -28,7 +29,7 @@ export default function Usuarios() {
   const estaInactivo = (u) => String(u.activo).trim().toLowerCase() === 'no'
 
   async function inhabilitar(u) {
-    if (!confirm(`¿Inhabilitar a ${u.nombre}? Sus visitas asignadas quedarán "sin asignar".`)) return
+    if (!(await confirmar(`¿Inhabilitar a ${u.nombre}? Sus visitas asignadas quedarán "sin asignar".`))) return
     setResultadoImport(null)
     try {
       const r = await inhabilitarUsuario(u.id)
