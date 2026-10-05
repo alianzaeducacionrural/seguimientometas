@@ -3,6 +3,7 @@ import { formatearFecha, soloFecha } from '../../utils/formato'
 import { AvisoError } from '../../components/Estado'
 import Modal from '../../components/Modal'
 import Flecha from '../../components/Flecha'
+import Spinner from '../../components/Spinner'
 
 const VACIO_POR_TIPO = { text: '', date: '', number: '', select: '', multiselect: [] }
 
@@ -64,6 +65,7 @@ export default function TablaCrud({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
   const [abiertaId, setAbiertaId] = useState(null)
+  const [eliminandoId, setEliminandoId] = useState(null)
 
   const modalAbierto = editandoId !== null
   const columnasVisibles = campos.filter((c) => !c.ocultarColumna)
@@ -108,10 +110,14 @@ export default function TablaCrud({
 
   async function eliminarFila(id) {
     if (!confirm('¿Eliminar este registro?')) return
+    setEliminandoId(id)
     try {
       await onEliminar(id)
     } catch (err) {
       setError(err.message)
+      alert(`No se pudo eliminar: ${err.message}`)
+    } finally {
+      setEliminandoId(null)
     }
   }
 
@@ -170,6 +176,7 @@ export default function TablaCrud({
             )}
             {filas.map((fila) => {
               const abierta = panelFila && String(abiertaId) === String(fila.id)
+              const eliminando = String(eliminandoId) === String(fila.id)
               return (
                 <FilaConPanel key={fila.id} abierta={abierta} panel={abierta ? panelFila(fila) : null} totalColumnas={totalColumnas}>
                   <tr
@@ -177,6 +184,7 @@ export default function TablaCrud({
                       String(editandoId) === String(fila.id) ? 'fila-editando' : '',
                       panelFila ? 'fila-expandible' : '',
                       abierta ? 'fila-abierta' : '',
+                      eliminando ? 'fila-en-curso' : '',
                     ].filter(Boolean).join(' ') || undefined}
                     onClick={(e) => clicFila(e, fila)}
                   >
@@ -190,8 +198,14 @@ export default function TablaCrud({
                     ))}
                     {columnasExtra.map((c) => <td key={c.label}>{c.render(fila)}</td>)}
                     <td className="celda-acciones">
-                      <button type="button" onClick={() => editarFila(fila)}>Editar</button>{' '}
-                      <button type="button" className="btn-peligro" onClick={() => eliminarFila(fila.id)}>Eliminar</button>
+                      {eliminando ? (
+                        <Spinner texto="Eliminando…" />
+                      ) : (
+                        <>
+                          <button type="button" disabled={eliminandoId !== null} onClick={() => editarFila(fila)}>Editar</button>{' '}
+                          <button type="button" className="btn-peligro" disabled={eliminandoId !== null} onClick={() => eliminarFila(fila.id)}>Eliminar</button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 </FilaConPanel>
@@ -305,10 +319,16 @@ export default function TablaCrud({
           {error && <AvisoError>{error}</AvisoError>}
 
           <div className="modal-pie">
-            <button type="button" onClick={cerrar}>Cancelar</button>
-            <button type="submit" className="btn-primario" disabled={guardando}>
-              {guardando ? 'Guardando…' : editandoId !== 'nuevo' ? 'Guardar cambios' : 'Crear'}
-            </button>
+            {guardando ? (
+              <Spinner texto="Guardando…" />
+            ) : (
+              <>
+                <button type="button" onClick={cerrar}>Cancelar</button>
+                <button type="submit" className="btn-primario">
+                  {editandoId !== 'nuevo' ? 'Guardar cambios' : 'Crear'}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </Modal>

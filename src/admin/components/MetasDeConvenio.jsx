@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import TablaCrud from './TablaCrud'
 import Modal from '../../components/Modal'
+import Spinner from '../../components/Spinner'
 import { AvisoError, Cargando } from '../../components/Estado'
 import { ejecutadoDe } from '../../utils/avance'
 import { hoy } from '../../utils/formato'
@@ -60,10 +61,14 @@ function BotonRegistrarAvance({ meta, onRegistrar }) {
           </label>
           {error && <AvisoError>{error}</AvisoError>}
           <div className="modal-pie">
-            <button type="button" onClick={() => setAbierto(false)}>Cancelar</button>
-            <button type="submit" className="btn-primario" disabled={guardando}>
-              {guardando ? 'Guardando…' : 'Registrar'}
-            </button>
+            {guardando ? (
+              <Spinner texto="Guardando…" />
+            ) : (
+              <>
+                <button type="button" onClick={() => setAbierto(false)}>Cancelar</button>
+                <button type="submit" className="btn-primario">Registrar</button>
+              </>
+            )}
           </div>
         </form>
       </Modal>

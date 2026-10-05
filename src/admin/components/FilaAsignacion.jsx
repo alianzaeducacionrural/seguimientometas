@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Spinner from '../../components/Spinner'
 
 // Cantidad asignada (la cuota) es editable inline; cantidad realizada ya no
 // se escribe a mano — la calcula quien usa esta fila contando las visitas
@@ -11,10 +12,12 @@ import { useState } from 'react'
 export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuardar, onEliminar }) {
   const [asignada, setAsignada] = useState(item.cantidad_asignada)
   const [guardando, setGuardando] = useState(false)
+  const [accionEnCurso, setAccionEnCurso] = useState('')
 
   const cambio = Number(asignada) !== Number(item.cantidad_asignada)
 
   async function guardar() {
+    setAccionEnCurso('Guardando…')
     setGuardando(true)
     try {
       await onGuardar(item.id, { cantidad_asignada: asignada })
@@ -22,38 +25,46 @@ export default function FilaAsignacion({ item, padrinoNombre, realizada, onGuard
       alert(`No se pudo guardar: ${err.message}`)
     } finally {
       setGuardando(false)
+      setAccionEnCurso('')
     }
   }
 
   async function eliminar() {
     if (!confirm('¿Eliminar esta asignación?')) return
+    setAccionEnCurso('Eliminando…')
     setGuardando(true)
     try {
       await onEliminar(item.id)
     } catch (err) {
       alert(`No se pudo eliminar: ${err.message}`)
-    } finally {
       setGuardando(false)
+      setAccionEnCurso('')
     }
   }
 
   return (
-    <tr>
+    <tr className={guardando ? 'fila-en-curso' : undefined}>
       <td>{padrinoNombre}</td>
       <td>
-        <input type="number" min="0" value={asignada} onChange={(e) => setAsignada(e.target.value)} style={{ width: '5em' }} />
+        <input
+          type="number"
+          min="0"
+          value={asignada}
+          disabled={guardando}
+          onChange={(e) => setAsignada(e.target.value)}
+          style={{ width: '5em' }}
+        />
       </td>
       <td className="numero">{realizada}</td>
       <td className="celda-acciones">
-        <button type="button" className="btn-primario" disabled={!cambio || guardando} onClick={guardar}>Guardar</button>{' '}
-        <button
-          type="button"
-          className="btn-peligro"
-          disabled={guardando}
-          onClick={eliminar}
-        >
-          {guardando ? 'Eliminando…' : 'Eliminar'}
-        </button>
+        {guardando ? (
+          <Spinner texto={accionEnCurso || 'Procesando…'} />
+        ) : (
+          <>
+            <button type="button" className="btn-primario" disabled={!cambio} onClick={guardar}>Guardar</button>{' '}
+            <button type="button" className="btn-peligro" onClick={eliminar}>Eliminar</button>
+          </>
+        )}
       </td>
     </tr>
   )

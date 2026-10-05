@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import EstadoFocalizacion from '../../components/EstadoFocalizacion'
+import Spinner from '../../components/Spinner'
 import { formatearFecha, hoy, soloFecha } from '../../utils/formato'
 
 // Una fila de focalización: reasignar padrino es inmediato; programar,
@@ -8,13 +9,18 @@ import { formatearFecha, hoy, soloFecha } from '../../utils/formato'
 // input de fecha sin afectar a las demás.
 // Transiciones permitidas: pendiente → programada o directo a realizada;
 // programada → realizada o de vuelta a pendiente; realizada es terminal.
+// Mientras cualquier acción está en curso, toda la fila queda bloqueada y
+// muestra un spinner con el nombre de la acción — antes el único indicio
+// era el texto de un botón, fácil de perderse mientras GAS responde.
 export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, celdasIniciales = null, ubicacionJunta = false }) {
   const [fecha, setFecha] = useState(hoy())
   const [guardando, setGuardando] = useState(false)
+  const [accionEnCurso, setAccionEnCurso] = useState('')
   // Edición de una visita ya realizada (por si se registró por error).
   const [corrigiendo, setCorrigiendo] = useState(false)
 
-  async function ejecutar(accion, conFecha = true) {
+  async function ejecutar(accion, texto, conFecha = true) {
+    setAccionEnCurso(texto)
     setGuardando(true)
     try {
       if (conFecha) await accion(item.id, fecha)
@@ -24,19 +30,36 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
       alert(`No se pudo completar la acción: ${err.message}`)
     } finally {
       setGuardando(false)
+      setAccionEnCurso('')
+    }
+  }
+
+  async function reasignar(nuevoPadrinoId) {
+    setAccionEnCurso('Reasignando…')
+    setGuardando(true)
+    try {
+      await onReasignar(item.id, nuevoPadrinoId)
+    } catch (err) {
+      alert(`No se pudo reasignar: ${err.message}`)
+    } finally {
+      setGuardando(false)
+      setAccionEnCurso('')
     }
   }
 
   async function eliminar() {
     if (!confirm('¿Eliminar esta focalización?')) return
+    setAccionEnCurso('Eliminando…')
     setGuardando(true)
     try {
       await onEliminar(item.id)
     } catch (err) {
       alert(`No se pudo eliminar: ${err.message}`)
-    } finally {
       setGuardando(false)
+      setAccionEnCurso('')
     }
+    // Si onEliminar tuvo éxito la fila desaparece con la propia visita — no
+    // hace falta (ni conviene) tocar estado en un componente ya desmontado.
   }
 
   function abrirCorreccion() {
@@ -45,7 +68,7 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
   }
 
   return (
-    <tr>
+    <tr className={guardando ? 'fila-en-curso' : undefined}>
       {celdasIniciales}
       {ubicacionJunta ? (
         <td className="celda-ubicacion">
@@ -62,7 +85,8 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
       <td>
         <select
           value={item.padrino_id || ''}
-          onChange={(e) => onReasignar(item.id, e.target.value)}
+          disabled={guardando}
+          onChange={(e) => reasignar(e.target.value)}
         >
           <option value="">Sin asignar</option>
           {padrinos.map((p) => (
@@ -77,50 +101,47 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
             que, en los paneles embebidos (Focalización → por convenio), se
             salía del ancho visible con estados "programada"/"realizada" y
             parecía que no se podía borrar. */}
-        <div className="acciones-foco">
-          {item.estado === 'pendiente' && (
-            <>
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-              <button type="button" disabled={guardando} onClick={() => ejecutar(onProgramar)}>Programar</button>
-              <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Marcar realizada</button>
-            </>
-          )}
-          {item.estado === 'programada' && (
-            <>
-              <span className="acciones-foco__nota">Programada: {formatearFecha(item.fecha_programada)}</span>
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-              <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Marcar realizada</button>
-              <button type="button" className="btn-peligro" disabled={guardando} onClick={() => ejecutar(onVolverPendiente, false)}>
-                Volver a pendiente
-              </button>
-            </>
-          )}
-          {item.estado === 'realizada' && (
-            corrigiendo ? (
+        {guardando ? (
+          <Spinner texto={accionEnCurso || 'Procesando…'} />
+        ) : (
+          <div className="acciones-foco">
+            {item.estado === 'pendiente' && (
               <>
                 <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-                <button type="button" disabled={guardando} onClick={() => ejecutar(onMarcarRealizada)}>Guardar fecha</button>
-                <button type="button" className="btn-peligro" disabled={guardando} onClick={() => ejecutar(onVolverPendiente, false)}>
+                <button type="button" onClick={() => ejecutar(onProgramar, 'Programando…')}>Programar</button>
+                <button type="button" onClick={() => ejecutar(onMarcarRealizada, 'Marcando como realizada…')}>Marcar realizada</button>
+              </>
+            )}
+            {item.estado === 'programada' && (
+              <>
+                <span className="acciones-foco__nota">Programada: {formatearFecha(item.fecha_programada)}</span>
+                <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                <button type="button" onClick={() => ejecutar(onMarcarRealizada, 'Marcando como realizada…')}>Marcar realizada</button>
+                <button type="button" className="btn-peligro" onClick={() => ejecutar(onVolverPendiente, 'Volviendo a pendiente…', false)}>
                   Volver a pendiente
                 </button>
-                <button type="button" disabled={guardando} onClick={() => setCorrigiendo(false)}>Cancelar</button>
               </>
-            ) : (
-              <>
-                <span className="acciones-foco__nota">Realizada: {formatearFecha(item.fecha_realizada)}</span>
-                <button type="button" onClick={abrirCorreccion}>Corregir</button>
-              </>
-            )
-          )}
-          <button
-            type="button"
-            className="btn-peligro"
-            disabled={guardando}
-            onClick={eliminar}
-          >
-            {guardando ? 'Eliminando…' : 'Eliminar'}
-          </button>
-        </div>
+            )}
+            {item.estado === 'realizada' && (
+              corrigiendo ? (
+                <>
+                  <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                  <button type="button" onClick={() => ejecutar(onMarcarRealizada, 'Guardando fecha…')}>Guardar fecha</button>
+                  <button type="button" className="btn-peligro" onClick={() => ejecutar(onVolverPendiente, 'Volviendo a pendiente…', false)}>
+                    Volver a pendiente
+                  </button>
+                  <button type="button" onClick={() => setCorrigiendo(false)}>Cancelar</button>
+                </>
+              ) : (
+                <>
+                  <span className="acciones-foco__nota">Realizada: {formatearFecha(item.fecha_realizada)}</span>
+                  <button type="button" onClick={abrirCorreccion}>Corregir</button>
+                </>
+              )
+            )}
+            <button type="button" className="btn-peligro" onClick={eliminar}>Eliminar</button>
+          </div>
+        )}
       </td>
     </tr>
   )

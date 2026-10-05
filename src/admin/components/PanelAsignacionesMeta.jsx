@@ -5,6 +5,7 @@ import SelectorInstitucion from './SelectorInstitucion'
 import { AvisoError, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
 import Flecha from '../../components/Flecha'
+import Spinner from '../../components/Spinner'
 import { hoy } from '../../utils/formato'
 import { coincideBusqueda } from '../../utils/texto'
 import { coincidePadrinoFiltro } from '../../utils/padrino'
@@ -288,10 +289,14 @@ export default function PanelAsignacionesMeta({
           )}
           {errorVisita && <AvisoError>{errorVisita}</AvisoError>}
           <div className="modal-pie">
-            <button type="button" onClick={() => setModalVisitaAbierto(false)}>Cancelar</button>
-            <button type="submit" className="btn-primario" disabled={guardandoVisita}>
-              {guardandoVisita ? 'Guardando…' : 'Agregar'}
-            </button>
+            {guardandoVisita ? (
+              <Spinner texto="Guardando…" />
+            ) : (
+              <>
+                <button type="button" onClick={() => setModalVisitaAbierto(false)}>Cancelar</button>
+                <button type="submit" className="btn-primario">Agregar</button>
+              </>
+            )}
           </div>
         </form>
       </Modal>
@@ -319,10 +324,14 @@ export default function PanelAsignacionesMeta({
           </label>
           {errorAsignar && <AvisoError>{errorAsignar}</AvisoError>}
           <div className="modal-pie">
-            <button type="button" onClick={() => setModalAsignarAbierto(false)}>Cancelar</button>
-            <button type="submit" className="btn-primario" disabled={guardandoAsignar}>
-              {guardandoAsignar ? 'Agregando…' : 'Agregar'}
-            </button>
+            {guardandoAsignar ? (
+              <Spinner texto="Agregando…" />
+            ) : (
+              <>
+                <button type="button" onClick={() => setModalAsignarAbierto(false)}>Cancelar</button>
+                <button type="submit" className="btn-primario">Agregar</button>
+              </>
+            )}
           </div>
         </form>
       </Modal>

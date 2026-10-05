@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import TarjetaVisitaFocalizacion from './TarjetaVisitaFocalizacion'
 import Modal from './Modal'
+import Spinner from './Spinner'
 import { formatearFecha, hoy } from '../utils/formato'
 
 // Una visita focalizada editable: envuelve la tarjeta de solo lectura
@@ -29,6 +30,8 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
     try {
       await onReasignar(item.id, nuevoPadrinoId)
       setModalAbierto(false)
+    } catch (err) {
+      alert(`No se pudo reasignar: ${err.message}`)
     } finally {
       setGuardando(false)
     }
@@ -46,6 +49,8 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
       else if (nuevoEstado === 'realizada') await onMarcarRealizada(item.id, fecha)
       else if (nuevoEstado === 'pendiente') await onVolverPendiente(item.id)
       setModalEstadoAbierto(false)
+    } catch (err) {
+      alert(`No se pudo cambiar el estado: ${err.message}`)
     } finally {
       setGuardandoEstado(false)
     }
@@ -65,7 +70,7 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
           <p className="vista-descripcion">{item.municipio} - {item.institucion} - {item.sede}</p>
           <label className="campo">
             <span>Padrino</span>
-            <select value={nuevoPadrinoId} onChange={(e) => setNuevoPadrinoId(e.target.value)}>
+            <select value={nuevoPadrinoId} disabled={guardando} onChange={(e) => setNuevoPadrinoId(e.target.value)}>
               <option value="">Sin asignar</option>
               {padrinos.map((p) => (
                 <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -73,10 +78,14 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
             </select>
           </label>
           <div className="modal-pie">
-            <button type="button" onClick={() => setModalAbierto(false)}>Cancelar</button>
-            <button type="button" className="btn-primario" disabled={guardando} onClick={confirmar}>
-              {guardando ? 'Guardando…' : 'Guardar'}
-            </button>
+            {guardando ? (
+              <Spinner texto="Guardando…" />
+            ) : (
+              <>
+                <button type="button" onClick={() => setModalAbierto(false)}>Cancelar</button>
+                <button type="button" className="btn-primario" onClick={confirmar}>Guardar</button>
+              </>
+            )}
           </div>
         </div>
       </Modal>
@@ -89,25 +98,31 @@ export default function TarjetaVisitaEditable({ item, padrinos, onReasignar, onP
           )}
           <label className="campo">
             <span>Fecha</span>
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <input type="date" value={fecha} disabled={guardandoEstado} onChange={(e) => setFecha(e.target.value)} />
           </label>
           <div className="modal-pie modal-pie-dividido">
-            <div>
-              {item.estado === 'programada' && (
-                <button type="button" className="btn-peligro" disabled={guardandoEstado} onClick={() => cambiarA('pendiente')}>
-                  Volver a pendiente
-                </button>
-              )}
-            </div>
-            <div className="modal-pie-grupo">
-              <button type="button" onClick={() => setModalEstadoAbierto(false)}>Cancelar</button>
-              {item.estado === 'pendiente' && (
-                <button type="button" disabled={guardandoEstado} onClick={() => cambiarA('programada')}>Programar</button>
-              )}
-              <button type="button" className="btn-primario" disabled={guardandoEstado} onClick={() => cambiarA('realizada')}>
-                {guardandoEstado ? 'Guardando…' : 'Marcar realizada'}
-              </button>
-            </div>
+            {guardandoEstado ? (
+              <Spinner texto="Guardando…" />
+            ) : (
+              <>
+                <div>
+                  {item.estado === 'programada' && (
+                    <button type="button" className="btn-peligro" onClick={() => cambiarA('pendiente')}>
+                      Volver a pendiente
+                    </button>
+                  )}
+                </div>
+                <div className="modal-pie-grupo">
+                  <button type="button" onClick={() => setModalEstadoAbierto(false)}>Cancelar</button>
+                  {item.estado === 'pendiente' && (
+                    <button type="button" onClick={() => cambiarA('programada')}>Programar</button>
+                  )}
+                  <button type="button" className="btn-primario" onClick={() => cambiarA('realizada')}>
+                    Marcar realizada
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </Modal>

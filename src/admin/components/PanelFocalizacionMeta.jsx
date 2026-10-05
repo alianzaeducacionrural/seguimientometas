@@ -3,6 +3,7 @@ import SelectorInstitucion from './SelectorInstitucion'
 import FilaFocalizacion from './FilaFocalizacion'
 import { AvisoError, Vacio } from '../../components/Estado'
 import Modal from '../../components/Modal'
+import Spinner from '../../components/Spinner'
 import { coincideBusqueda } from '../../utils/texto'
 import { coincidePadrinoFiltro } from '../../utils/padrino'
 
@@ -146,10 +147,14 @@ export default function PanelFocalizacionMeta({ meta, items, padrinos, onCrear, 
           </label>
           {error && <AvisoError>{error}</AvisoError>}
           <div className="modal-pie">
-            <button type="button" onClick={() => setModalAbierto(false)}>Cancelar</button>
-            <button type="submit" className="btn-primario" disabled={guardando}>
-              {guardando ? 'Agregando…' : 'Agregar'}
-            </button>
+            {guardando ? (
+              <Spinner texto="Agregando…" />
+            ) : (
+              <>
+                <button type="button" onClick={() => setModalAbierto(false)}>Cancelar</button>
+                <button type="submit" className="btn-primario">Agregar</button>
+              </>
+            )}
           </div>
         </form>
       </Modal>
