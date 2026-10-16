@@ -29,13 +29,13 @@ export default function Usuarios() {
   const estaInactivo = (u) => String(u.activo).trim().toLowerCase() === 'no'
 
   async function inhabilitar(u) {
-    if (!(await confirmar(`¿Inhabilitar a ${u.nombre}? Sus visitas asignadas quedarán "sin asignar".`))) return
+    if (!(await confirmar(`¿Inhabilitar a ${u.nombre}? Sus visitas pendientes quedarán "sin asignar", las programadas volverán a pendiente sin asignar, y las realizadas conservan su nombre.`))) return
     setResultadoImport(null)
     try {
       const r = await inhabilitarUsuario(u.id)
       await usuarios.recargar()
       const partes = []
-      if (r.reasignadas) partes.push(`${r.reasignadas} visita(s) quedaron sin asignar`)
+      if (r.reasignadas) partes.push(`${r.reasignadas} visita(s) quedaron sin asignar${r.aPendiente ? ` (${r.aPendiente} programada(s) volvieron a pendiente)` : ''}`)
       if (r.conservadas) partes.push(`${r.conservadas} realizada(s) se conservaron`)
       setResultadoImport(`${u.nombre} quedó inhabilitado${partes.length ? ` — ${partes.join('; ')}` : ''}.`)
     } catch (err) {

@@ -3,6 +3,7 @@ import EstadoFocalizacion from '../../components/EstadoFocalizacion'
 import Spinner from '../../components/Spinner'
 import { formatearFecha, hoy, soloFecha } from '../../utils/formato'
 import { avisar, confirmar } from '../../utils/dialogos'
+import { fechaVisita } from '../../utils/estadoFocalizacion'
 
 // Una fila de focalización: reasignar padrino es inmediato; programar,
 // marcar realizada y volver a pendiente piden confirmación (fecha o
@@ -13,8 +14,8 @@ import { avisar, confirmar } from '../../utils/dialogos'
 // Mientras cualquier acción está en curso, toda la fila queda bloqueada y
 // muestra un spinner con el nombre de la acción — antes el único indicio
 // era el texto de un botón, fácil de perderse mientras GAS responde.
-export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, celdasIniciales = null, ubicacionJunta = false }) {
-  const [fecha, setFecha] = useState(hoy())
+export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgramar, onMarcarRealizada, onVolverPendiente, onEliminar, celdasIniciales = null, ubicacionJunta = false, mostrarFecha = false }) {
+  const [fecha, setFecha] = useState(item.estado === 'programada' ? soloFecha(item.fecha_programada) || hoy() : hoy())
   const [guardando, setGuardando] = useState(false)
   const [accionEnCurso, setAccionEnCurso] = useState('')
   // Edición de una visita ya realizada (por si se registró por error).
@@ -96,6 +97,7 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
         </select>
       </td>
       <td><EstadoFocalizacion estado={item.estado} /></td>
+      {mostrarFecha && <td>{formatearFecha(fechaVisita(item)) || '—'}</td>}
       <td>
         {/* Todas las acciones (incl. Eliminar) van en la misma celda y
             envuelven: antes Eliminar estaba en una columna aparte al final
@@ -117,6 +119,7 @@ export default function FilaFocalizacion({ item, padrinos, onReasignar, onProgra
               <>
                 <span className="acciones-foco__nota">Programada: {formatearFecha(item.fecha_programada)}</span>
                 <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                <button type="button" disabled={fecha === soloFecha(item.fecha_programada)} onClick={() => ejecutar(onProgramar, 'Reprogramando…')}>Reprogramar</button>
                 <button type="button" onClick={() => ejecutar(onMarcarRealizada, 'Marcando como realizada…')}>Marcar realizada</button>
                 <button type="button" className="btn-peligro" onClick={() => ejecutar(onVolverPendiente, 'Volviendo a pendiente…', false)}>
                   Volver a pendiente

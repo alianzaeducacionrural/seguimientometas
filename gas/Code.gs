@@ -452,8 +452,9 @@ function importarPadrinosCatalogo() {
   return { ok: true, creados, omitidos: catalogo.padrinos.length - creados };
 }
 
-// Inhabilita un profesional: lo marca activo='no' y deja "sin asignar" sus
-// visitas PENDIENTES/PROGRAMADAS (focalizacion.padrino_id = ''), pero conserva
+// Inhabilita un profesional: lo marca activo='no', deja "sin asignar" sus
+// visitas PENDIENTES (focalizacion.padrino_id = '') y las PROGRAMADAS además
+// vuelven a "pendiente" (se borra su fecha programada), pero conserva
 // las ya REALIZADAS con su padrino como historial (queda registrado quién las
 // hizo). También elimina sus cuotas (asignaciones_sin_focalizacion), que son
 // trabajo futuro sin sentido sin dueño. Habilitar de nuevo es un simple editar
@@ -468,23 +469,39 @@ function inhabilitarUsuario(id) {
   const enc = ENCABEZADOS[HOJAS.FOCALIZACION];
   const colPad = enc.indexOf('padrino_id') + 1;
   const colEst = enc.indexOf('estado') + 1;
+  const colProg = enc.indexOf('fecha_programada') + 1;
   const lastRow = hojaFoc.getLastRow();
   let reasignadas = 0;
   let conservadas = 0;
+  let aPendiente = 0;
   if (lastRow >= 2) {
     const rangoPad = hojaFoc.getRange(2, colPad, lastRow - 1, 1);
+    const rangoEst = hojaFoc.getRange(2, colEst, lastRow - 1, 1);
+    const rangoProg = hojaFoc.getRange(2, colProg, lastRow - 1, 1);
     const pads = rangoPad.getValues();
-    const ests = hojaFoc.getRange(2, colEst, lastRow - 1, 1).getValues();
+    const ests = rangoEst.getValues();
+    const progs = rangoProg.getValues();
     for (let i = 0; i < pads.length; i++) {
       if (String(pads[i][0]).trim() !== String(id).trim()) continue;
-      if (String(ests[i][0]).trim().toLowerCase() === 'realizada') {
-        conservadas++;
-      } else {
-        pads[i][0] = '';
-        reasignadas++;
+      const estado = String(ests[i][0]).trim().toLowerCase();
+      if (estado === 'realizada') {
+        conservadas++; // queda con su padrino: es el historial de quién la hizo
+        continue;
       }
+      pads[i][0] = '';
+      if (estado === 'programada') { // sin responsable ya no hay visita agendada
+        ests[i][0] = 'pendiente';
+        progs[i][0] = '';
+        aPendiente++;
+      }
+      reasignadas++;
     }
-    if (reasignadas > 0) rangoPad.setValues(pads);
+    if (reasignadas > 0) {
+      rangoPad.setValues(pads);
+      rangoEst.setValues(ests);
+      rangoProg.setValues(progs);
+      SpreadsheetApp.flush();
+    }
   }
 
   // Eliminar sus cuotas sin-focalizar (no tiene sentido conservarlas sin dueño).
@@ -492,7 +509,7 @@ function inhabilitarUsuario(id) {
     .filter(a => String(a.padrino_id).trim() === String(id).trim())
     .forEach(a => eliminarRegistro('asignaciones_sin_focalizacion', a.id));
 
-  return { ok: true, reasignadas, conservadas };
+  return { ok: true, reasignadas, conservadas, aPendiente };
 }
 
 function mapaDeSetsAArrays(mapaDeSets) {

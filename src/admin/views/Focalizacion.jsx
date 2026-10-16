@@ -4,7 +4,8 @@ import Flecha from '../../components/Flecha'
 import PanelFocalizacionMeta from '../components/PanelFocalizacionMeta'
 import PanelAsignacionesMeta from '../components/PanelAsignacionesMeta'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
-import { accionesEstadoFocalizacion } from '../../utils/estadoFocalizacion'
+import { accionesEstadoFocalizacion, fechaVisita } from '../../utils/estadoFocalizacion'
+import EncabezadoOrdenable from '../../components/EncabezadoOrdenable'
 import FilaFocalizacion from '../components/FilaFocalizacion'
 import { idsDeLista, ordenDeProyecto } from '../../utils/proyectos'
 import { coincideBusqueda } from '../../utils/texto'
@@ -39,6 +40,12 @@ export default function Focalizacion() {
   const [busqueda, setBusqueda] = useState('')
   // Vista de página: 'convenios' (acordeón) o 'todas' (lista plana global).
   const [vista, setVista] = useState('convenios')
+  // Orden de "Todas las visitas": sin columna activa → aliado/convenio/proyecto;
+  // clic en "Fecha" alterna asc/desc.
+  const [orden, setOrden] = useState({ columna: null, asc: true })
+  function ordenarPor(columna) {
+    setOrden((o) => (o.columna === columna ? { columna, asc: !o.asc } : { columna, asc: true }))
+  }
   const [convenioAbierto, setConvenioAbierto] = useState(null)
   const [proyectoAbierto, setProyectoAbierto] = useState(null)
   const [metaAbierta, setMetaAbierta] = useState(null)
@@ -145,6 +152,12 @@ export default function Focalizacion() {
         (!proyectoId || String(meta.proyecto_id) === proyectoId)
         && visitaCoincide(foc, meta, proyecto, convenio, aliado))
       .sort((a, b) => {
+        if (orden.columna === 'fecha') {
+          const fa = fechaVisita(a.foc)
+          const fb = fechaVisita(b.foc)
+          // Las pendientes (sin fecha) siempre al final, sea asc o desc.
+          if (fa !== fb) return !fa ? 1 : !fb ? -1 : orden.asc ? fa.localeCompare(fb) : fb.localeCompare(fa)
+        }
         const al = (a.aliado?.nombre || '').localeCompare(b.aliado?.nombre || '')
         if (al !== 0) return al
         const cn = (a.convenio?.nombre || '').localeCompare(b.convenio?.nombre || '')
@@ -262,6 +275,7 @@ export default function Focalizacion() {
                     <th>Ubicación</th>
                     <th>Padrino</th>
                     <th>Estado</th>
+                    <EncabezadoOrdenable columna="fecha" orden={orden} onOrdenar={ordenarPor} title="Ordenar por fecha">Fecha</EncabezadoOrdenable>
                     <th>Acción</th>
                   </tr>
                 </thead>
@@ -272,6 +286,7 @@ export default function Focalizacion() {
                       item={foc}
                       padrinos={padrinos}
                       ubicacionJunta
+                      mostrarFecha
                       celdasIniciales={(
                         <>
                           <td className="celda-ubicacion">
