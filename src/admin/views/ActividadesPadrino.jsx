@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react'
 import useEntidad from '../hooks/useEntidad'
 import Avatar from '../../components/Avatar'
+import { BarraApilada } from '../../components/Graficos'
 import Flecha from '../../components/Flecha'
 import TarjetaVisitaEditable from '../../components/TarjetaVisitaEditable'
 import ColumnasVisitas from '../../components/ColumnasVisitas'
@@ -147,6 +148,7 @@ export default function ActividadesPadrino() {
               <EncabezadoOrdenable columna="asignadas" orden={orden} onOrdenar={ordenarPor} numero>Asignadas</EncabezadoOrdenable>
               <EncabezadoOrdenable columna="realizadas" orden={orden} onOrdenar={ordenarPor} numero>Realizadas</EncabezadoOrdenable>
               <EncabezadoOrdenable columna="pendientes" orden={orden} onOrdenar={ordenarPor} numero>Pendientes</EncabezadoOrdenable>
+              <th>Avance</th>
             </tr>
           </thead>
           <tbody>
@@ -170,10 +172,11 @@ export default function ActividadesPadrino() {
                   <td className="numero">{sinAsignarTotal}</td>
                   <td className="numero">{sinAsignarReal.length}</td>
                   <td className="numero">{sinAsignarPend.length}</td>
+                  <td><BarraApilada realizadas={sinAsignarReal.length} pendientes={sinAsignarPend.length} /></td>
                 </tr>
                 {sinAsignarAbierto && (
                   <tr className="fila-panel">
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <div className="panel-acordeon">
                         <ColumnasVisitas
                           pendientes={sinAsignarPend}
@@ -225,10 +228,11 @@ export default function ActividadesPadrino() {
                     <td className="numero">{asignadas}</td>
                     <td className="numero">{realizadas}</td>
                     <td className="numero">{pendientes}</td>
+                    <td><BarraApilada realizadas={realizadas} pendientes={pendientes} /></td>
                   </tr>
                   {abierto && (
                     <tr className="fila-panel">
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <div className="panel-acordeon">
                           <ColumnasVisitas
                             pendientes={pendientesFocalizacion}

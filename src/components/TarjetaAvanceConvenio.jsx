@@ -1,5 +1,6 @@
 import { colorAvance, colorPorId } from '../utils/colores'
 import { ejecutadoDe, programadasDe } from '../utils/avance'
+import { Anillo } from './Graficos'
 import estilos from './TarjetaResumen.module.css'
 
 // Tarjeta de avance de un convenio: Proyecto | Actividad | Meta | Ejecutado
@@ -13,14 +14,46 @@ import estilos from './TarjetaResumen.module.css'
 // Proyecto. `metasDelConvenio` debe llegar ya filtrada (y ordenada por el
 // orden fijo del catálogo, ver utils/proyectos.js `ordenarPorProyecto`) por
 // el llamador.
-export default function TarjetaAvanceConvenio({ convenio, aliado, metasDelConvenio, proyectos, focalizacion, avancesManuales, conProgramadas = false }) {
+export default function TarjetaAvanceConvenio({ convenio, aliado, metasDelConvenio, proyectos, focalizacion, avancesManuales, conProgramadas = false, visual = false }) {
   const color = colorPorId(convenio.id)
+
+  // Resumen con anillo (solo admin): cada actividad aporta como máximo su meta.
+  let metaTotal = 0
+  let realizadasTotal = 0
+  let programadasTotal = 0
+  if (visual) {
+    metasDelConvenio.forEach((m) => {
+      const meta = Number(m.cantidad_meta) || 0
+      const r = Math.min(ejecutadoDe(m, focalizacion, avancesManuales), meta)
+      metaTotal += meta
+      realizadasTotal += r
+      programadasTotal += Math.min(programadasDe(m, focalizacion), Math.max(meta - r, 0))
+    })
+  }
+  const pctDe = (n) => (metaTotal > 0 ? Math.round((n / metaTotal) * 100) : 0)
 
   return (
     <div className={estilos.card} style={{ '--acento': color }}>
       <div className={estilos.header}>
-        <h3>{convenio.nombre}</h3>
-        <p>{aliado?.nombre || '—'} · {convenio.anio_vigencia} · {convenio.estado}</p>
+        <div className={visual ? 'cabecera-visual' : undefined}>
+          <div>
+            <h3>{convenio.nombre}</h3>
+            <p>{aliado?.nombre || '—'} · {convenio.anio_vigencia} · {convenio.estado}</p>
+            {visual && (
+              <ul className="chips-resumen">
+                <li><b>{metaTotal}</b> meta</li>
+                <li className="ok"><b>{realizadasTotal}</b> realizadas</li>
+                <li className="prog"><b>{programadasTotal}</b> programadas</li>
+                <li className="falta"><b>{Math.max(metaTotal - realizadasTotal - programadasTotal, 0)}</b> por programar</li>
+              </ul>
+            )}
+          </div>
+          {visual && (
+            <Anillo valor={pctDe(realizadasTotal)} extra={pctDe(programadasTotal)} tamano={104} grosor={11} color={color}>
+              <strong>{pctDe(realizadasTotal)}%</strong>
+            </Anillo>
+          )}
+        </div>
       </div>
 
       {metasDelConvenio.length === 0 ? (

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import EstadoFocalizacion from '../../components/EstadoFocalizacion'
 import EncabezadoOrdenable from '../../components/EncabezadoOrdenable'
 import { fechaVisita } from '../../utils/estadoFocalizacion'
+import Avatar from '../../components/Avatar'
 import { formatearFecha, hoy } from '../../utils/formato'
 import { colorPorId } from '../../utils/colores'
 
@@ -53,14 +54,14 @@ export default function TablaVisitas({ filas, orden, onOrdenar, seleccion, onSel
             return (
               <tr
                 key={foc.id}
-                className={`fila-clic${seleccion.has(id) ? ' fila-seleccionada' : ''}`}
+                className={`fila-clic fila-${foc.estado}${seleccion.has(id) ? ' fila-seleccionada' : ''}`}
                 onClick={() => onAbrir(foc.id)}
               >
                 <td className="col-chk" onClick={(e) => e.stopPropagation()}>
                   <input type="checkbox" checked={seleccion.has(id)} onChange={() => alternar(id)} aria-label="Seleccionar visita" />
                 </td>
-                <td className={vencida ? 'fecha-vencida' : undefined} title={vencida ? 'Programada con fecha vencida' : undefined}>
-                  {formatearFecha(fecha) || '—'}
+                <td title={vencida ? 'Programada con fecha vencida' : undefined}>
+                  {fecha ? <span className={`chip-fecha${vencida ? ' vencida' : ''}`}>{formatearFecha(fecha)}</span> : <span className="celda-vacia">—</span>}
                 </td>
                 <td><EstadoFocalizacion estado={foc.estado} /></td>
                 <td className="celda-ubicacion">
@@ -75,7 +76,9 @@ export default function TablaVisitas({ filas, orden, onOrdenar, seleccion, onSel
                   <span className="etiqueta-proyecto" style={{ '--acento': colorPorId(proyecto?.id) }}>{proyecto?.nombre || '—'}</span>
                   <div className="celda-ubicacion-sub">{meta?.descripcion || ''}</div>
                 </td>
-                <td>{nombre ? <span className="nombre-padrino">{nombre}</span> : <span className="sin-asignar-txt">Sin asignar</span>}</td>
+                <td>{nombre
+                  ? <span className="nombre-padrino"><Avatar id={foc.padrino_id} nombre={nombre} tamano={24} />{nombre}</span>
+                  : <span className="sin-asignar-txt">Sin asignar</span>}</td>
               </tr>
             )
           })}

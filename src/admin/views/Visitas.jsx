@@ -12,6 +12,7 @@ import Spinner from '../../components/Spinner'
 import { avisar, confirmar } from '../../utils/dialogos'
 import { descargarCsv } from '../../utils/csv'
 import { formatearFecha, hoy } from '../../utils/formato'
+import { IconoAlerta, IconoCalendario, IconoCheck, IconoReloj } from '../../components/Iconos'
 import { idsDeLista, ordenDeProyecto } from '../../utils/proyectos'
 import { coincideBusqueda } from '../../utils/texto'
 import { PADRINO_SIN_ASIGNAR, coincidePadrinoFiltro } from '../../utils/padrino'
@@ -46,7 +47,7 @@ export default function Visitas() {
   const [proyectoId, setProyectoId] = useState(params.get('proyecto') || '')
   const [padrinoId, setPadrinoId] = useState(params.get('padrino') || '')
   const [estado, setEstado] = useState(params.get('estado') || '')
-  const [municipio, setMunicipio] = useState('')
+  const [municipio, setMunicipio] = useState(params.get('municipio') || '')
   const [busqueda, setBusqueda] = useState(params.get('q') || '')
   const [metaId, setMetaId] = useState(params.get('meta') || '')
   const [soloVencidas, setSoloVencidas] = useState(params.get('vencidas') === '1')
@@ -261,9 +262,20 @@ export default function Visitas() {
     ], todasLasVisitas())
   }
 
-  const totalRealizadas = visitasTodas.filter((v) => v.foc.estado === 'realizada').length
-  const totalProgramadas = visitasTodas.filter((v) => v.foc.estado === 'programada').length
-  const totalPendientes = visitasTodas.filter((v) => v.foc.estado === 'pendiente').length
+
+  // Pestañas de estado: conteos sobre TODAS las visitas (no sobre el filtro
+  // actual) para que sirvan de atajo; al hacer clic fijan el filtro.
+  const baseTabs = focalizacion.datos.filter((f) => esFocalizable(metaPorId[String(f.meta_id)]))
+  const venc = (f) => f.estado === 'programada' && fechaVisita(f) && fechaVisita(f) < hoyIso
+  const fijar = (est, vencidas = false, padrino = '') => { setEstado(est); setSoloVencidas(vencidas); setPadrinoId(padrino) }
+  const tabs = [
+    { clave: 'todas', etq: 'Todas', n: baseTabs.length, tono: 'neutro', activa: !estado && !soloVencidas && !padrinoId, ir: () => fijar('') },
+    { clave: 'pend', etq: 'Pendientes', n: baseTabs.filter((f) => f.estado === 'pendiente').length, tono: 'pend', Icono: IconoReloj, activa: estado === 'pendiente' && !soloVencidas, ir: () => fijar('pendiente') },
+    { clave: 'prog', etq: 'Programadas', n: baseTabs.filter((f) => f.estado === 'programada').length, tono: 'prog', Icono: IconoCalendario, activa: estado === 'programada' && !soloVencidas, ir: () => fijar('programada') },
+    { clave: 'real', etq: 'Realizadas', n: baseTabs.filter((f) => f.estado === 'realizada').length, tono: 'ok', Icono: IconoCheck, activa: estado === 'realizada', ir: () => fijar('realizada') },
+    { clave: 'venc', etq: 'Vencidas', n: baseTabs.filter(venc).length, tono: 'alto', Icono: IconoAlerta, activa: soloVencidas, ir: () => fijar('programada', true) },
+    { clave: 'sin', etq: 'Sin responsable', n: baseTabs.filter((f) => !String(f.padrino_id ?? '').trim()).length, tono: 'medio', Icono: IconoAlerta, activa: padrinoId === PADRINO_SIN_ASIGNAR && !estado, ir: () => fijar('', false, PADRINO_SIN_ASIGNAR) },
+  ]
 
   return (
     <section className="vista">
@@ -275,6 +287,16 @@ export default function Visitas() {
         <div className="adm-acciones">
           <button type="button" onClick={exportarCsv}>Exportar CSV</button>
         </div>
+      </div>
+
+      <div className="tabs-estado" role="tablist" aria-label="Filtrar por estado">
+        {tabs.map(({ clave, etq, n, tono, Icono, activa, ir }) => (
+          <button key={clave} type="button" role="tab" aria-selected={activa} className={`tab-estado tab-estado--${tono}${activa ? ' activa' : ''}`} onClick={ir}>
+            {Icono && <Icono tamano={16} />}
+            <strong>{n}</strong>
+            <span>{etq}</span>
+          </button>
+        ))}
       </div>
 
       <div className="barra-filtros">
@@ -349,13 +371,7 @@ export default function Visitas() {
 
       {vista === 'todas' ? (
         <>
-          <div className="kpis">
-            <div className="kpi"><strong>{visitasTodas.length}</strong><span>Visitas</span></div>
-            <div className="kpi"><strong style={{ color: 'var(--logrado)' }}>{totalRealizadas}</strong><span>Realizadas</span></div>
-            <div className="kpi"><strong style={{ color: 'var(--maduracion)' }}>{totalProgramadas}</strong><span>Programadas</span></div>
-            <div className="kpi"><strong>{totalPendientes}</strong><span>Pendientes</span></div>
-          </div>
-
+          <p className="conteo-visitas">Mostrando <b>{visitasTodas.length}</b> visita{visitasTodas.length === 1 ? '' : 's'}{hayFiltro ? ' con los filtros aplicados' : ''}</p>
           {visitasTodas.length === 0 ? (
             <Vacio>No hay visitas{hayFiltro ? ' que coincidan con los filtros' : ''}.</Vacio>
           ) : (

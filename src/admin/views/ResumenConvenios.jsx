@@ -107,6 +107,7 @@ export default function ResumenConvenios() {
             focalizacion={focalizacion.datos}
             avancesManuales={avancesManuales.datos}
             conProgramadas={modo === 'proyectadas'}
+            visual
           />
         )
       })}

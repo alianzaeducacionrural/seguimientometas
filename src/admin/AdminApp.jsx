@@ -37,7 +37,7 @@ export default function AdminApp() {
     <>
       <header className="adm-barra">
         <Link to="/admin" className="adm-marca">
-          <MarcaLogo tamano={30} />
+          <MarcaLogo invertido tamano={34} />
           <span>
             <strong>Seguimiento a Convenios</strong>
             <small>Educación · Comité de Cafeteros de Caldas</small>

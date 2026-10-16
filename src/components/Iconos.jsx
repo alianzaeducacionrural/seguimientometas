@@ -1,10 +1,10 @@
 // Set único de iconos de la app (trazo, 18px, heredan currentColor).
 // Solo los usa la barra de navegación del admin — un icono por sección.
-function Svg({ children }) {
+function Svg({ children, tamano = 18 }) {
   return (
     <svg
-      width="18"
-      height="18"
+      width={tamano}
+      height={tamano}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -65,6 +65,50 @@ export function IconoResumen() {
     <Svg>
       <path d="M4 20h16" />
       <path d="M7 20v-6M12 20V5M17 20v-9" />
+    </Svg>
+  )
+}
+
+export function IconoCheck({ tamano }) {
+  return (
+    <Svg tamano={tamano}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12.5 2.8 2.8L16 9.6" />
+    </Svg>
+  )
+}
+
+export function IconoCalendario({ tamano }) {
+  return (
+    <Svg tamano={tamano}>
+      <rect x="4" y="5" width="16" height="15" rx="2" />
+      <path d="M4 10h16M9 3v4M15 3v4" />
+    </Svg>
+  )
+}
+
+export function IconoReloj({ tamano }) {
+  return (
+    <Svg tamano={tamano}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </Svg>
+  )
+}
+
+export function IconoAlerta({ tamano }) {
+  return (
+    <Svg tamano={tamano}>
+      <path d="M12 3.5 2.8 19.5h18.4Z" />
+      <path d="M12 10v4.5M12 17.2v.1" />
+    </Svg>
+  )
+}
+
+export function IconoDescarga({ tamano }) {
+  return (
+    <Svg tamano={tamano}>
+      <path d="M12 4v11M7.5 11 12 15.5 16.5 11M5 19h14" />
     </Svg>
   )
 }

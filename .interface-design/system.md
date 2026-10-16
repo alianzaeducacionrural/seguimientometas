@@ -108,3 +108,17 @@ compactos con acento a la izquierda, pestañas internas (`.adm-pestanas`),
 panel lateral por visita (`.panel-lateral`) en vez de celdas de acciones
 inline, barra de selección en lote (`.barra-seleccion`) y cabecera de página
 `.adm-cabecera`. Todo color nuevo sigue saliendo de los tokens.
+
+### Segunda iteración: visual y llamativa (oct-2026)
+
+Mismo aguamarina, pero con más personalidad en el admin: barra superior en
+degradado profundo (#062f34 → #0d8f97) con navegación en pastillas (la activa
+es blanca), títulos en Plus Jakarta Sans 800 (cuerpo en Inter), tarjetas de 14px
+con sombra suave (`--sombra-tarjeta`) y colores de estado explícitos
+(`--estado-ok/-prog/-pend/-alto/-medio`). Inicio es un tablero: hero con anillo,
+KPIs grandes con icono, barras por mes, dona, agenda, anillos por convenio,
+ranking de responsables y mosaico de calor por municipio — todo en SVG propio
+(`src/components/Graficos.jsx`, sin librería). Visitas arranca con pestañas de
+estado con conteos (`.tab-estado`), franja de color por estado en cada fila,
+fecha en chip (roja si vencida) y avatar del responsable. Los degradados se
+limitan al encabezado y al hero; las tarjetas usan color por estado, no decoración.
