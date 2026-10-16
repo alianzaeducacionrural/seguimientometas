@@ -105,6 +105,18 @@
   transition: width 0.5s ease-out;
 }
 
+/* Segundo tramo de la barra: visitas programadas (proyectadas), a rayas más
+   claras para distinguirlas de lo ya realizado. */
+.track.dosTramos {
+  display: flex;
+}
+
+.fillProg {
+  height: 100%;
+  background: repeating-linear-gradient(135deg, rgba(13, 143, 151, 0.6) 0 4px, rgba(13, 143, 151, 0.3) 4px 8px);
+  transition: width 0.5s ease-out;
+}
+
 .pct {
   font-variant-numeric: tabular-nums;
   font-size: 0.84rem;

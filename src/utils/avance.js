@@ -19,3 +19,10 @@ export function ejecutadoDe(meta, focalizacion, avancesManuales) {
   }
   return 0
 }
+
+// Visitas programadas (con fecha, aún sin realizar) de una meta: lo que ya
+// está "proyectado" para completar la meta. Las metas Manual no programan.
+export function programadasDe(meta, focalizacion) {
+  if (meta.tipo !== 'visita_focalizada' && meta.tipo !== 'visita_sin_focalizar') return 0
+  return focalizacion.filter((f) => String(f.meta_id) === String(meta.id) && f.estado === 'programada').length
+}
