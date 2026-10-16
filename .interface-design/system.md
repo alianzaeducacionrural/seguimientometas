@@ -95,3 +95,16 @@ mayúsculas pequeñas 700–800 con tracking +0.04em; cifras con
 - Paneles líder/padrino: `.panel-persona*` con MarcaLogo y chip de rol.
 - Movimiento: aparición `aparecer` 0.25s, barras de avance con transición
   de ancho, girador de carga; todo respetando `prefers-reduced-motion`.
+
+## Admin (rediseño oct-2026)
+
+El admin tiene su propio tema, más moderno y denso, sobre la misma identidad
+aguamarina: `src/admin/admin.css`, activado con `body.adm` (lo pone
+`AdminApp`), que NO afecta al panel de líder/padrino ni a la portada. Cambia:
+superficies frías (`--papel #f1f5f6`) con bordes sólidos, radios 6/8/12,
+Inter 14px, barra superior sticky de 52px con navegación de 5 secciones en
+lugar de la barra lateral, tablas de ~38px de alto, botones de 28px, KPIs
+compactos con acento a la izquierda, pestañas internas (`.adm-pestanas`),
+panel lateral por visita (`.panel-lateral`) en vez de celdas de acciones
+inline, barra de selección en lote (`.barra-seleccion`) y cabecera de página
+`.adm-cabecera`. Todo color nuevo sigue saliendo de los tokens.

@@ -1,0 +1,769 @@
+/* Tema del admin: aguamarina moderno y denso. Todo cuelga de body.adm (la
+   clase la pone AdminApp al montarse y la quita al salir), así el panel de
+   líder/padrino y la portada conservan su aspecto "papel y aguamarina".
+   Redefine los mismos tokens de index.css (superficies frías, bordes
+   sólidos, radios menores) y compacta tablas, botones y controles. */
+
+body.adm {
+  --papel: #f1f5f6;
+  --superficie: #ffffff;
+  --superficie-2: #eaf1f2;
+
+  --tinta: #10252a;
+  --tinta-2: #38525a;
+  --tinta-3: #657d84;
+  --tinta-suave: #98aab0;
+
+  --borde-suave: #e3ebed;
+  --borde: #d3dfe2;
+  --borde-fuerte: #b0c3c8;
+
+  --aguamarina: #0d8f97;
+  --aguamarina-oscuro: #0a6870;
+  --aguamarina-tinte: #e1f4f5;
+  --aguamarina-borde: rgba(13, 143, 151, 0.4);
+
+  --control-fondo: #ffffff;
+  --control-borde: #c6d5d9;
+  --foco: rgba(13, 143, 151, 0.28);
+
+  --radio-sm: 6px;
+  --radio: 8px;
+  --radio-lg: 12px;
+
+  --sombra-flotante: 0 1px 2px rgba(16, 37, 42, 0.06), 0 6px 20px rgba(16, 37, 42, 0.08);
+
+  font-family: 'Inter', 'Nunito Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  background: var(--papel);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Armazón: barra superior + contenido ancho ---------- */
+
+.adm-barra {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  height: 52px;
+  padding: 0 1.5rem;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+}
+
+.adm-marca {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+  color: var(--tinta);
+}
+
+.adm-marca:hover {
+  text-decoration: none;
+  color: var(--tinta);
+}
+
+.adm-marca strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.adm-marca small {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--tinta-3);
+  line-height: 1.1;
+}
+
+.adm-nav {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.adm-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.adm-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 32px;
+  padding: 0 0.75rem;
+  border-radius: var(--radio-sm);
+  color: var(--tinta-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.adm-enlace svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.adm-enlace:hover {
+  background: var(--superficie-2);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.adm-enlace.activa {
+  background: var(--aguamarina-tinte);
+  color: var(--aguamarina-oscuro);
+}
+
+.adm-rol {
+  flex: none;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--aguamarina-borde);
+  border-radius: 999px;
+  background: var(--aguamarina-tinte);
+  color: var(--aguamarina-oscuro);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.adm-contenido {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 1.1rem 1.5rem 3rem;
+}
+
+@media (max-width: 760px) {
+  .adm-barra {
+    padding: 0 0.75rem;
+    gap: 0.6rem;
+  }
+
+  .adm-marca small,
+  .adm-rol {
+    display: none;
+  }
+
+  .adm-contenido {
+    padding: 0.9rem 0.75rem 3rem;
+  }
+}
+
+/* ---------- Cabecera de página y pestañas internas ---------- */
+
+.adm-cabecera {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.9rem;
+}
+
+.adm-cabecera h2 {
+  margin: 0;
+}
+
+.adm-sub {
+  margin: 0.1rem 0 0;
+  color: var(--tinta-3);
+  font-size: 0.82rem;
+}
+
+.adm-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.adm-pestanas {
+  display: flex;
+  gap: 0.15rem;
+  margin: 0 0 1rem;
+  border-bottom: 1px solid var(--borde);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.adm-pestana {
+  padding: 0.5rem 0.85rem;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--tinta-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.adm-pestana:hover {
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.adm-pestana.activa {
+  color: var(--aguamarina-oscuro);
+  border-bottom-color: var(--aguamarina);
+}
+
+/* ---------- Densidad general (tipografía, botones, controles) ---------- */
+
+body.adm h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+body.adm h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 1.1rem 0 0.4rem;
+}
+
+body.adm .vista-descripcion {
+  font-size: 0.85rem;
+  margin-bottom: 0.9rem;
+}
+
+body.adm button {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  min-height: 28px;
+  border-radius: var(--radio-sm);
+}
+
+body.adm .btn-primario {
+  background: var(--aguamarina);
+  border-color: var(--aguamarina-oscuro);
+  box-shadow: none;
+}
+
+body.adm .btn-primario:hover:not(:disabled) {
+  background: var(--aguamarina-oscuro);
+  border-color: var(--aguamarina-oscuro);
+}
+
+body.adm input,
+body.adm select {
+  font-size: 0.82rem;
+  padding: 0.28rem 0.55rem;
+  min-height: 30px;
+}
+
+body.adm .campo > span {
+  font-size: 0.68rem;
+}
+
+/* ---------- Tablas densas ---------- */
+
+body.adm .tabla-envoltura {
+  border-radius: var(--radio);
+  box-shadow: 0 1px 2px rgba(16, 37, 42, 0.04);
+}
+
+body.adm .tabla {
+  font-size: 0.82rem;
+}
+
+body.adm .tabla th {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: var(--superficie-2);
+  border-bottom: 1px solid var(--borde);
+}
+
+body.adm .tabla td {
+  padding: 0.36rem 0.7rem;
+}
+
+body.adm .tabla tbody tr:hover {
+  background: #f5fafb;
+}
+
+body.adm .fila-abierta > td {
+  background: var(--aguamarina-tinte);
+}
+
+body.adm .panel-acordeon {
+  padding: 0.75rem 1rem 1rem;
+  max-width: min(1500px, calc(100vw - 3.5rem));
+}
+
+/* ---------- KPIs compactos ---------- */
+
+body.adm .kpis {
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+body.adm .kpi {
+  min-width: 7rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--borde);
+  border-left: 3px solid var(--aguamarina);
+  border-radius: var(--radio);
+}
+
+body.adm .kpi:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+body.adm .kpi strong {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+body.adm .kpi span {
+  font-size: 0.66rem;
+}
+
+/* ---------- Filtros en una sola franja ---------- */
+
+body.adm .barra-filtros {
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  box-shadow: none;
+}
+
+body.adm .barra-filtros__titulo {
+  font-size: 0.64rem;
+  border-right-color: var(--borde);
+}
+
+body.adm .barra-filtros select {
+  padding: 0.28rem 1.65rem 0.28rem 0.55rem;
+  font-weight: 500;
+}
+
+body.adm .barra-filtros input {
+  min-width: 220px;
+  padding: 0.28rem 0.55rem;
+}
+
+body.adm .barra-filtros select.activo {
+  font-weight: 600;
+}
+
+/* Conmutador de vista como grupo segmentado */
+body.adm .conmutador-vista {
+  gap: 0;
+  margin-bottom: 0.9rem;
+}
+
+body.adm .conmutador-vista button {
+  border-radius: 0;
+  min-height: 30px;
+}
+
+body.adm .conmutador-vista button:first-child {
+  border-radius: var(--radio-sm) 0 0 var(--radio-sm);
+}
+
+body.adm .conmutador-vista button:last-child {
+  border-radius: 0 var(--radio-sm) var(--radio-sm) 0;
+  margin-left: -1px;
+}
+
+/* ---------- Modales ---------- */
+
+body.adm .modal {
+  border-radius: var(--radio-lg);
+  box-shadow: 0 10px 40px rgba(16, 37, 42, 0.2);
+}
+
+body.adm .modal-fondo {
+  background: rgba(16, 37, 42, 0.38);
+}
+
+body.adm .modal-cabecera {
+  padding: 0.8rem 1.1rem;
+}
+
+body.adm .modal-cabecera h3 {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+body.adm .modal-cuerpo {
+  padding: 1rem 1.1rem;
+}
+
+/* ---------- Inicio (panel de control) ---------- */
+
+.inicio-rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .inicio-rejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tarjeta-adm {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+
+.tarjeta-adm__cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.tarjeta-adm__cab h3 {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.alerta-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.alerta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--borde-suave);
+  color: var(--tinta);
+}
+
+.alerta-item:first-child {
+  border-top: none;
+}
+
+a.alerta-item:hover {
+  background: #f5fafb;
+  text-decoration: none;
+}
+
+.alerta-item__n {
+  flex: none;
+  min-width: 2.2rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--superficie-2);
+  color: var(--tinta-2);
+}
+
+.alerta-item__n.alto {
+  background: var(--cereza-tinte);
+  color: var(--cereza);
+}
+
+.alerta-item__n.medio {
+  background: var(--maduracion-tinte);
+  color: var(--maduracion);
+}
+
+.alerta-item__n.ok {
+  background: var(--logrado-tinte);
+  color: var(--logrado);
+}
+
+.alerta-item__txt strong {
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.alerta-item__txt small {
+  color: var(--tinta-3);
+  font-size: 0.74rem;
+}
+
+.alerta-item__ir {
+  margin-left: auto;
+  color: var(--aguamarina);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.avance-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9rem 3.2rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--borde-suave);
+  font-size: 0.82rem;
+}
+
+.avance-fila:first-child {
+  border-top: none;
+}
+
+.avance-fila__nombre {
+  min-width: 0;
+}
+
+.avance-fila__nombre strong {
+  display: block;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avance-fila__nombre small {
+  color: var(--tinta-3);
+  font-size: 0.72rem;
+}
+
+.avance-barra {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--borde-suave);
+  overflow: hidden;
+}
+
+.avance-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.avance-fila__pct {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Visitas: barra de selección y panel lateral ---------- */
+
+.barra-seleccion {
+  position: sticky;
+  top: 60px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  background: var(--aguamarina-oscuro);
+  color: #fff;
+  border-radius: var(--radio);
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: var(--sombra-flotante);
+}
+
+.barra-seleccion select {
+  min-width: 200px;
+}
+
+.barra-seleccion .btn-limpiar-sel {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.barra-seleccion .btn-limpiar-sel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.tabla-visitas .col-chk {
+  width: 2rem;
+  padding-right: 0 !important;
+}
+
+.tabla-visitas tbody tr.fila-clic {
+  cursor: pointer;
+}
+
+.tabla-visitas tbody tr.fila-seleccionada {
+  background: var(--aguamarina-tinte);
+}
+
+.fecha-vencida {
+  color: var(--cereza);
+  font-weight: 600;
+}
+
+.nombre-padrino {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sin-asignar-txt {
+  color: var(--maduracion);
+  font-weight: 600;
+}
+
+.mostrar-mas {
+  display: flex;
+  justify-content: center;
+  padding: 0.7rem;
+  border-top: 1px solid var(--borde-suave);
+}
+
+.panel-lateral-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(16, 37, 42, 0.3);
+  animation: fondoAparece 0.15s ease-out;
+}
+
+.panel-lateral {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 46;
+  width: min(420px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  border-left: 1px solid var(--borde);
+  box-shadow: -8px 0 30px rgba(16, 37, 42, 0.14);
+  animation: panelEntra 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes panelEntra {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.panel-lateral__cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.panel-lateral__cab h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.panel-lateral__cab small {
+  display: block;
+  color: var(--tinta-3);
+  font-size: 0.75rem;
+  margin-top: 0.15rem;
+}
+
+.panel-lateral__cuerpo {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.9rem 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel-lateral__bloque > .etiqueta {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--tinta-3);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.panel-lateral__bloque select {
+  width: 100%;
+}
+
+.panel-lateral .acciones-foco {
+  max-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-lateral {
+    animation: none;
+  }
+}
+
+/* ---------- Botones de enlace y filtros tipo interruptor ---------- */
+
+.btn-enlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--control-borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--tinta-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.btn-enlace:hover {
+  background: var(--superficie-2);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+body.adm .barra-filtros .btn-toggle.activo {
+  background: var(--aguamarina-tinte);
+  border-color: var(--aguamarina);
+  color: var(--aguamarina-oscuro);
+}
+
+.barra-seleccion .spinner-en-curso__fila {
+  color: #fff;
+}
+
+.barra-seleccion .spinner-en-curso__circulo {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+
+.barra-seleccion .spinner-en-curso__barra {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.barra-seleccion .spinner-en-curso__barra span {
+  background: #fff;
+}

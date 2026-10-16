@@ -1,12 +1,17 @@
 import { Fragment, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import useEntidad from '../hooks/useEntidad'
 import Flecha from '../../components/Flecha'
 import PanelFocalizacionMeta from '../components/PanelFocalizacionMeta'
 import PanelAsignacionesMeta from '../components/PanelAsignacionesMeta'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { accionesEstadoFocalizacion, fechaVisita } from '../../utils/estadoFocalizacion'
-import EncabezadoOrdenable from '../../components/EncabezadoOrdenable'
-import FilaFocalizacion from '../components/FilaFocalizacion'
+import TablaVisitas from '../components/TablaVisitas'
+import PanelVisita from '../components/PanelVisita'
+import Spinner from '../../components/Spinner'
+import { avisar, confirmar } from '../../utils/dialogos'
+import { descargarCsv } from '../../utils/csv'
+import { formatearFecha, hoy } from '../../utils/formato'
 import { idsDeLista, ordenDeProyecto } from '../../utils/proyectos'
 import { coincideBusqueda } from '../../utils/texto'
 import { PADRINO_SIN_ASIGNAR, coincidePadrinoFiltro } from '../../utils/padrino'
@@ -16,14 +21,18 @@ import estilos from '../../components/TarjetaResumen.module.css'
 
 // Gestiona toda la focalización (sedes preasignadas y visitas sin focalizar)
 // sin tener que entrar a Convenios. Dos vistas conmutables:
-//  - "Por convenio": acordeón de tres niveles Convenio → Proyecto → Actividad
-//    (al abrir una actividad se incrusta el panel completo, el mismo que usa
-//    la ruta /admin/metas/:metaId).
-//  - "Todas las visitas": lista plana de TODAS las visitas de todos los
-//    convenios, sin abrir cada uno, con KPIs de total.
-// Los filtros (proyecto, padrino, estado, municipio y búsqueda libre) son
-// globales y aplican a ambas vistas. Las metas "Manual" no aparecen acá.
-export default function Focalizacion() {
+//  - "Lista": tabla plana y densa de TODAS las visitas de todos los convenios,
+//    con orden por columna, selección múltiple (asignar responsable en lote),
+//    panel lateral por visita y exportar a CSV.
+//  - "Por convenio": acordeón Convenio → Proyecto → Actividad (al abrir una
+//    actividad se incrusta su panel completo, con "+ Agregar sede/visita").
+// Los filtros (proyecto, padrino, estado, municipio, búsqueda, vencidas y
+// actividad) son globales y aplican a ambas vistas; pueden llegar prellenados
+// por la URL (?estado=&padrino=&vencidas=1&meta=&q=&orden=fecha), que es como
+// enlaza Inicio. Las metas "Manual" no aparecen acá.
+const SIN_ASIGNAR_LOTE = '__sin__'
+
+export default function Visitas() {
   const proyectos = useEntidad('proyectos')
   const convenios = useEntidad('convenios')
   const aliados = useEntidad('aliados')
@@ -33,16 +42,24 @@ export default function Focalizacion() {
   const usuarios = useEntidad('usuarios')
 
   // Filtros globales.
-  const [proyectoId, setProyectoId] = useState('')
-  const [padrinoId, setPadrinoId] = useState('')
-  const [estado, setEstado] = useState('')
+  const [params] = useSearchParams()
+  const [proyectoId, setProyectoId] = useState(params.get('proyecto') || '')
+  const [padrinoId, setPadrinoId] = useState(params.get('padrino') || '')
+  const [estado, setEstado] = useState(params.get('estado') || '')
   const [municipio, setMunicipio] = useState('')
-  const [busqueda, setBusqueda] = useState('')
-  // Vista de página: 'convenios' (acordeón) o 'todas' (lista plana global).
-  const [vista, setVista] = useState('convenios')
-  // Orden de "Todas las visitas": sin columna activa → aliado/convenio/proyecto;
-  // clic en "Fecha" alterna asc/desc.
-  const [orden, setOrden] = useState({ columna: null, asc: true })
+  const [busqueda, setBusqueda] = useState(params.get('q') || '')
+  const [metaId, setMetaId] = useState(params.get('meta') || '')
+  const [soloVencidas, setSoloVencidas] = useState(params.get('vencidas') === '1')
+  // Vista de página: 'todas' (lista plana global) o 'convenios' (acordeón).
+  const [vista, setVista] = useState(params.get('vista') || 'todas')
+  // Orden de la lista: por defecto lo abierto primero (pendientes, luego
+  // programadas, luego realizadas); clic en un encabezado alterna asc/desc.
+  const [orden, setOrden] = useState({ columna: params.get('orden') === 'fecha' ? 'fecha' : 'estado', asc: true })
+  // Selección múltiple (ids como string), panel lateral y progreso del lote.
+  const [seleccion, setSeleccion] = useState(new Set())
+  const [abiertaId, setAbiertaId] = useState(null)
+  const [padrinoLote, setPadrinoLote] = useState('')
+  const [asignando, setAsignando] = useState(null)
   function ordenarPor(columna) {
     setOrden((o) => (o.columna === columna ? { columna, asc: !o.asc } : { columna, asc: true }))
   }
@@ -68,7 +85,8 @@ export default function Focalizacion() {
   const aliadoPorId = Object.fromEntries(aliados.datos.map((a) => [String(a.id), a]))
 
   const esFocalizable = (m) => m && (m.tipo === 'visita_focalizada' || m.tipo === 'visita_sin_focalizar')
-  const hayFiltro = Boolean(proyectoId || padrinoId || estado || municipio || busqueda)
+  const hayFiltro = Boolean(proyectoId || padrinoId || estado || municipio || busqueda || metaId || soloVencidas)
+  const hoyIso = hoy()
 
   // Municipios disponibles: los que aparecen en alguna visita de una meta
   // focalizable (para el filtro global).
@@ -84,6 +102,8 @@ export default function Focalizacion() {
     if (!coincidePadrinoFiltro(f.padrino_id, padrinoId)) return false
     if (estado && f.estado !== estado) return false
     if (municipio && f.municipio !== municipio) return false
+    if (metaId && String(f.meta_id) !== metaId) return false
+    if (soloVencidas && !(f.estado === 'programada' && fechaVisita(f) && fechaVisita(f) < hoyIso)) return false
     return coincideBusqueda(busqueda, proyecto?.nombre, meta?.descripcion, convenio?.nombre, aliado?.nombre,
       f.municipio, f.institucion, f.sede, nombrePadrino(f.padrino_id))
   }
@@ -137,27 +157,46 @@ export default function Focalizacion() {
 
   // Todas las visitas de todos los convenios en una lista plana, tras filtros,
   // ordenadas por aliado → convenio → proyecto (orden fijo) → actividad → municipio.
+  function contextoVisita(f) {
+    const meta = metaPorId[String(f.meta_id)]
+    if (!esFocalizable(meta)) return null
+    const convenio = convenioPorId[String(meta.convenio_id)]
+    const proyecto = proyectoPorId[String(meta.proyecto_id)]
+    const aliado = convenio && aliadoPorId[String(convenio.aliado_id)]
+    return { foc: f, meta, proyecto, convenio, aliado }
+  }
+
+  // Valor por el que ordena cada columna de la lista ('' = sin dato → al final).
+  const ORDEN_ESTADO = { pendiente: 0, programada: 1, realizada: 2 }
+  const claveOrden = {
+    fecha: (v) => fechaVisita(v.foc),
+    estado: (v) => ORDEN_ESTADO[v.foc.estado] ?? 9,
+    municipio: (v) => (v.foc.municipio || '').toLowerCase(),
+    padrino: (v) => nombrePadrino(v.foc.padrino_id).toLowerCase(),
+  }
+
   function todasLasVisitas() {
     return focalizacion.datos
-      .map((f) => {
-        const meta = metaPorId[String(f.meta_id)]
-        if (!esFocalizable(meta)) return null
-        const convenio = convenioPorId[String(meta.convenio_id)]
-        const proyecto = proyectoPorId[String(meta.proyecto_id)]
-        const aliado = convenio && aliadoPorId[String(convenio.aliado_id)]
-        return { foc: f, meta, proyecto, convenio, aliado }
-      })
+      .map(contextoVisita)
       .filter(Boolean)
       .filter(({ foc, meta, proyecto, convenio, aliado }) =>
         (!proyectoId || String(meta.proyecto_id) === proyectoId)
         && visitaCoincide(foc, meta, proyecto, convenio, aliado))
       .sort((a, b) => {
-        if (orden.columna === 'fecha') {
-          const fa = fechaVisita(a.foc)
-          const fb = fechaVisita(b.foc)
-          // Las pendientes (sin fecha) siempre al final, sea asc o desc.
-          if (fa !== fb) return !fa ? 1 : !fb ? -1 : orden.asc ? fa.localeCompare(fb) : fb.localeCompare(fa)
+        if (orden.columna) {
+          const ka = claveOrden[orden.columna](a)
+          const kb = claveOrden[orden.columna](b)
+          if (ka !== kb) {
+            // Sin dato (sin fecha, sin padrino) siempre al final, sea asc o desc.
+            if (ka === '' || kb === '') return ka === '' ? 1 : -1
+            const c = typeof ka === 'number' ? ka - kb : String(ka).localeCompare(String(kb))
+            return orden.asc ? c : -c
+          }
         }
+        // Desempate: por fecha (lo más próximo primero) y luego jerarquía fija.
+        const fa = fechaVisita(a.foc)
+        const fb = fechaVisita(b.foc)
+        if (fa !== fb) return fa === '' ? 1 : fb === '' ? -1 : fa.localeCompare(fb)
         const al = (a.aliado?.nombre || '').localeCompare(b.aliado?.nombre || '')
         if (al !== 0) return al
         const cn = (a.convenio?.nombre || '').localeCompare(b.convenio?.nombre || '')
@@ -183,13 +222,60 @@ export default function Focalizacion() {
   }
 
   const visitasTodas = vista === 'todas' ? todasLasVisitas() : []
+  const idsSeleccionados = visitasTodas.filter(({ foc }) => seleccion.has(String(foc.id))).map(({ foc }) => foc.id)
+  const visitaAbierta = abiertaId != null ? contextoVisita(focalizacion.datos.find((f) => String(f.id) === String(abiertaId)) || {}) : null
+  const reasignar = (id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })
+
+  async function asignarLote() {
+    const realizadas = focalizacion.datos.filter((f) => idsSeleccionados.includes(f.id) && f.estado === 'realizada').length
+    if (realizadas && !(await confirmar(
+      `${realizadas} de las visitas seleccionadas ya están realizadas: cambiar su responsable altera quién figura como autor de esas visitas. ¿Continuar?`,
+      { textoConfirmar: 'Continuar' },
+    ))) return
+    setAsignando({ hechos: 0, total: idsSeleccionados.length })
+    try {
+      await focalizacion.editarItems(idsSeleccionados, { padrino_id: padrinoLote === SIN_ASIGNAR_LOTE ? '' : padrinoLote },
+        (hechos, total) => setAsignando({ hechos, total }))
+      setSeleccion(new Set())
+      setPadrinoLote('')
+    } catch (err) {
+      await avisar(`No se pudieron asignar todas las visitas (${err.message}). Las que alcanzaron a guardarse ya quedaron asignadas.`)
+    } finally {
+      setAsignando(null)
+    }
+  }
+
+  function exportarCsv() {
+    descargarCsv('visitas', [
+      { titulo: 'Convenio', valor: (v) => v.convenio?.nombre },
+      { titulo: 'Aliado', valor: (v) => v.aliado?.nombre },
+      { titulo: 'Proyecto', valor: (v) => v.proyecto?.nombre },
+      { titulo: 'Actividad', valor: (v) => v.meta?.descripcion },
+      { titulo: 'Municipio', valor: (v) => v.foc.municipio },
+      { titulo: 'Institución', valor: (v) => v.foc.institucion },
+      { titulo: 'Sede', valor: (v) => v.foc.sede },
+      { titulo: 'Responsable', valor: (v) => nombrePadrino(v.foc.padrino_id) || 'Sin asignar' },
+      { titulo: 'Estado', valor: (v) => v.foc.estado },
+      { titulo: 'Fecha programada', valor: (v) => formatearFecha(v.foc.fecha_programada) },
+      { titulo: 'Fecha realizada', valor: (v) => formatearFecha(v.foc.fecha_realizada) },
+    ], todasLasVisitas())
+  }
+
   const totalRealizadas = visitasTodas.filter((v) => v.foc.estado === 'realizada').length
   const totalProgramadas = visitasTodas.filter((v) => v.foc.estado === 'programada').length
   const totalPendientes = visitasTodas.filter((v) => v.foc.estado === 'pendiente').length
 
   return (
     <section className="vista">
-      <h2>Focalización</h2>
+      <div className="adm-cabecera">
+        <div>
+          <h2>Visitas</h2>
+          <p className="adm-sub">Todas las visitas de focalización y sin focalizar: filtra, ordena y gestiona.</p>
+        </div>
+        <div className="adm-acciones">
+          <button type="button" onClick={exportarCsv}>Exportar CSV</button>
+        </div>
+      </div>
 
       <div className="barra-filtros">
         <span className="barra-filtros__titulo">
@@ -229,8 +315,16 @@ export default function Focalizacion() {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
+        <button type="button" className={`btn-toggle${soloVencidas ? ' activo' : ''}`} onClick={() => setSoloVencidas((v) => !v)} title="Programadas cuya fecha ya pasó">
+          Vencidas
+        </button>
+        {metaId && (
+          <button type="button" className="btn-toggle activo" onClick={() => setMetaId('')} title="Quitar el filtro de actividad">
+            Actividad: {metaPorId[metaId]?.descripcion || metaId} ✕
+          </button>
+        )}
         {hayFiltro && (
-          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setPadrinoId(''); setEstado(''); setMunicipio(''); setBusqueda('') }}>
+          <button type="button" className="btn-limpiar" onClick={() => { setProyectoId(''); setPadrinoId(''); setEstado(''); setMunicipio(''); setBusqueda(''); setMetaId(''); setSoloVencidas(false) }}>
             Limpiar filtros
           </button>
         )}
@@ -239,17 +333,17 @@ export default function Focalizacion() {
       <div className="conmutador-vista">
         <button
           type="button"
+          className={vista === 'todas' ? 'btn-primario' : ''}
+          onClick={() => setVista('todas')}
+        >
+          Lista
+        </button>
+        <button
+          type="button"
           className={vista === 'convenios' ? 'btn-primario' : ''}
           onClick={() => setVista('convenios')}
         >
           Por convenio
-        </button>
-        <button
-          type="button"
-          className={vista === 'todas' ? 'btn-primario' : ''}
-          onClick={() => setVista('todas')}
-        >
-          Todas las visitas
         </button>
       </div>
 
@@ -265,52 +359,35 @@ export default function Focalizacion() {
           {visitasTodas.length === 0 ? (
             <Vacio>No hay visitas{hayFiltro ? ' que coincidan con los filtros' : ''}.</Vacio>
           ) : (
-            <div className="tabla-envoltura">
-              <table className="tabla tabla-visitas">
-                <thead>
-                  <tr>
-                    <th>Convenio</th>
-                    <th>Proyecto</th>
-                    <th>Actividad</th>
-                    <th>Ubicación</th>
-                    <th>Padrino</th>
-                    <th>Estado</th>
-                    <EncabezadoOrdenable columna="fecha" orden={orden} onOrdenar={ordenarPor} title="Ordenar por fecha">Fecha</EncabezadoOrdenable>
-                    <th>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visitasTodas.map(({ foc, meta, proyecto, convenio, aliado }) => (
-                    <FilaFocalizacion
-                      key={foc.id}
-                      item={foc}
-                      padrinos={padrinos}
-                      ubicacionJunta
-                      mostrarFecha
-                      celdasIniciales={(
-                        <>
-                          <td className="celda-ubicacion">
-                            <div>{convenio?.nombre || '—'}</div>
-                            <div className="celda-ubicacion-sub">{aliado?.nombre || ''}</div>
-                          </td>
-                          <td>
-                            <span className="etiqueta-proyecto" style={{ '--acento': colorPorId(proyecto?.id) }}>
-                              {proyecto?.nombre || '—'}
-                            </span>
-                          </td>
-                          <td>{meta?.descripcion || '—'}</td>
-                        </>
-                      )}
-                      onReasignar={(id, nuevoPadrinoId) => focalizacion.editarItem(id, { padrino_id: nuevoPadrinoId })}
-                      onProgramar={programar}
-                      onMarcarRealizada={marcarRealizada}
-                      onVolverPendiente={volverAPendiente}
-                      onEliminar={focalizacion.eliminarItem}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {idsSeleccionados.length > 0 && (
+                <div className="barra-seleccion">
+                  <span>{idsSeleccionados.length} seleccionada(s)</span>
+                  {asignando ? (
+                    <Spinner texto={`Asignando ${asignando.hechos} de ${asignando.total}…`} />
+                  ) : (
+                    <>
+                      <select value={padrinoLote} onChange={(e) => setPadrinoLote(e.target.value)}>
+                        <option value="">Asignar a…</option>
+                        <option value={SIN_ASIGNAR_LOTE}>Sin asignar</option>
+                        {padrinos.map((p) => <option key={p.id} value={String(p.id)}>{p.nombre}</option>)}
+                      </select>
+                      <button type="button" className="btn-primario" disabled={!padrinoLote} onClick={asignarLote}>Aplicar</button>
+                      <button type="button" className="btn-limpiar-sel" onClick={() => setSeleccion(new Set())}>Quitar selección</button>
+                    </>
+                  )}
+                </div>
+              )}
+              <TablaVisitas
+                filas={visitasTodas}
+                orden={orden}
+                onOrdenar={ordenarPor}
+                seleccion={seleccion}
+                onSeleccion={setSeleccion}
+                onAbrir={setAbiertaId}
+                nombrePadrino={nombrePadrino}
+              />
+            </>
           )}
         </>
       ) : conveniosConProyectos.length === 0 ? (
@@ -468,6 +545,19 @@ export default function Focalizacion() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {visitaAbierta && (
+        <PanelVisita
+          visita={visitaAbierta}
+          padrinos={padrinos}
+          onReasignar={reasignar}
+          onProgramar={programar}
+          onMarcarRealizada={marcarRealizada}
+          onVolverPendiente={volverAPendiente}
+          onEliminar={focalizacion.eliminarItem}
+          onCerrar={() => setAbiertaId(null)}
+        />
       )}
     </section>
   )

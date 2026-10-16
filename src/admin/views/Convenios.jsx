@@ -55,7 +55,7 @@ export default function Convenios() {
         onEliminar={convenios.eliminarItem}
         panelFila={(fila) => <MetasDeConvenio convenio={fila} />}
       />
-      <p style={{ marginTop: '1rem' }}><Link to="/admin/resumen">Ver tabla de avance por convenio →</Link></p>
+      <p style={{ marginTop: '1rem' }}><Link to="/admin/reportes">Ver tabla de avance por convenio →</Link></p>
     </>
   )
 }

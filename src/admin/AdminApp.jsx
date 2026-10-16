@@ -1,106 +1,76 @@
-import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import Proyectos from './views/Proyectos'
-import Aliados from './views/Aliados'
-import Usuarios from './views/Usuarios'
-import Convenios from './views/Convenios'
-import Focalizacion from './views/Focalizacion'
-import FocalizacionMeta from './views/FocalizacionMeta'
-import AsignacionesMeta from './views/AsignacionesMeta'
-import ResumenConvenios from './views/ResumenConvenios'
-import ActividadesPadrino from './views/ActividadesPadrino'
-import VisitasSede from './views/VisitasSede'
-import Catalogo from './views/Catalogo'
+import { useLayoutEffect } from 'react'
+import { Link, Navigate, NavLink, Route, Routes, useParams } from 'react-router-dom'
+import Inicio from './views/Inicio'
+import Visitas from './views/Visitas'
+import { SeccionConvenios, SeccionEquipo, SeccionReportes } from './views/Secciones'
 import MarcaLogo from '../components/MarcaLogo'
-import {
-  IconoAliados,
-  IconoCarga,
-  IconoCatalogo,
-  IconoConvenios,
-  IconoFocalizacion,
-  IconoProyectos,
-  IconoResumen,
-  IconoUsuarios,
-  IconoVisitas,
-} from '../components/Iconos'
+import { IconoCarga, IconoConvenios, IconoFocalizacion, IconoInicio, IconoResumen } from '../components/Iconos'
+import './admin.css'
 
 // Rutas absolutas a propósito: con rutas relativas, un NavLink dentro de una
-// vista anidada (p.ej. /admin/convenios/3) resuelve "aliados" contra la URL
-// actual en vez de contra /admin, y el menú termina apuntando a
-// /admin/convenios/aliados en lugar de /admin/aliados.
-const GESTION = [
-  { to: '/admin', label: 'Proyectos', Icono: IconoProyectos },
-  { to: '/admin/aliados', label: 'Aliados', Icono: IconoAliados },
-  { to: '/admin/usuarios', label: 'Usuarios', Icono: IconoUsuarios },
+// vista anidada (p.ej. /admin/convenios/aliados) resuelve contra la URL
+// actual en vez de contra /admin y el menú termina apuntando a un lugar roto.
+const MENU = [
+  { to: '/admin', label: 'Inicio', Icono: IconoInicio, end: true },
+  { to: '/admin/visitas', label: 'Visitas', Icono: IconoFocalizacion },
   { to: '/admin/convenios', label: 'Convenios', Icono: IconoConvenios },
-  { to: '/admin/focalizacion', label: 'Focalización', Icono: IconoFocalizacion },
+  { to: '/admin/equipo', label: 'Equipo', Icono: IconoCarga },
+  { to: '/admin/reportes', label: 'Reportes', Icono: IconoResumen },
 ]
 
-const REPORTES = [
-  { to: '/admin/resumen', label: 'Avance por convenio', Icono: IconoResumen },
-  { to: '/admin/actividades-padrino', label: 'Actividades por padrino', Icono: IconoCarga },
-  { to: '/admin/visitas-sede', label: 'Visitas por sede', Icono: IconoVisitas },
-  { to: '/admin/catalogo', label: 'Catálogo IE', Icono: IconoCatalogo },
-]
-
-function Enlace({ to, label, Icono }) {
-  return (
-    <NavLink
-      to={to}
-      end={to === '/admin'}
-      className={({ isActive }) => `lateral-enlace${isActive ? ' activa' : ''}`}
-    >
-      <Icono />
-      {label}
-    </NavLink>
-  )
+// Los enlaces viejos (favoritos, /admin/metas/:id desde Convenios) siguen
+// funcionando redirigiendo a la vista equivalente.
+function RedirigirMeta() {
+  const { metaId } = useParams()
+  return <Navigate to={`/admin/visitas?meta=${metaId}`} replace />
 }
 
 export default function AdminApp() {
-  const { pathname } = useLocation()
-  // La vista de Focalización tiene tablas anchas (p.ej. "Todas las visitas"):
-  // se le da más ancho de contenido para aprovechar el espacio y evitar
-  // desbordes/scroll innecesario.
-  const contenidoAncho = pathname === '/admin/focalizacion'
+  // El tema denso del admin (admin.css) cuelga de body.adm para no tocar el
+  // aspecto del panel de líder/padrino ni de la portada.
+  useLayoutEffect(() => {
+    document.body.classList.add('adm')
+    return () => document.body.classList.remove('adm')
+  }, [])
 
   return (
-    <div className="cascaron">
-      <aside className="lateral">
-        <Link to="/admin" className="lateral-marca">
-          <MarcaLogo invertido tamano={38} />
+    <>
+      <header className="adm-barra">
+        <Link to="/admin" className="adm-marca">
+          <MarcaLogo tamano={30} />
           <span>
             <strong>Seguimiento a Convenios</strong>
             <small>Educación · Comité de Cafeteros de Caldas</small>
           </span>
         </Link>
-        <nav>
-          <p className="lateral-titulo">Gestión</p>
-          <div className="lateral-nav">
-            {GESTION.map((e) => <Enlace key={e.to} {...e} />)}
-          </div>
-          <p className="lateral-titulo">Reportes</p>
-          <div className="lateral-nav">
-            {REPORTES.map((e) => <Enlace key={e.to} {...e} />)}
-          </div>
+        <nav className="adm-nav">
+          {MENU.map(({ to, label, Icono, end }) => (
+            <NavLink key={to} to={to} end={end} className={({ isActive }) => `adm-enlace${isActive ? ' activa' : ''}`}>
+              <Icono />
+              {label}
+            </NavLink>
+          ))}
         </nav>
-      </aside>
+        <span className="adm-rol">Admin</span>
+      </header>
 
-      <div className="principal">
-        <main className={`contenido${contenidoAncho ? ' contenido-ancho' : ''}`}>
-          <Routes>
-            <Route index element={<Proyectos />} />
-            <Route path="aliados" element={<Aliados />} />
-            <Route path="usuarios" element={<Usuarios />} />
-            <Route path="convenios" element={<Convenios />} />
-            <Route path="focalizacion" element={<Focalizacion />} />
-            <Route path="metas/:metaId" element={<FocalizacionMeta />} />
-            <Route path="metas/:metaId/asignaciones" element={<AsignacionesMeta />} />
-            <Route path="resumen" element={<ResumenConvenios />} />
-            <Route path="actividades-padrino" element={<ActividadesPadrino />} />
-            <Route path="visitas-sede" element={<VisitasSede />} />
-            <Route path="catalogo" element={<Catalogo />} />
-          </Routes>
-        </main>
-      </div>
-    </div>
+      <main className="adm-contenido">
+        <Routes>
+          <Route index element={<Inicio />} />
+          <Route path="visitas" element={<Visitas />} />
+          <Route path="convenios/*" element={<SeccionConvenios />} />
+          <Route path="equipo/*" element={<SeccionEquipo />} />
+          <Route path="reportes/*" element={<SeccionReportes />} />
+          <Route path="focalizacion" element={<Navigate to="/admin/visitas" replace />} />
+          <Route path="metas/:metaId/*" element={<RedirigirMeta />} />
+          <Route path="aliados" element={<Navigate to="/admin/convenios/aliados" replace />} />
+          <Route path="usuarios" element={<Navigate to="/admin/equipo" replace />} />
+          <Route path="actividades-padrino" element={<Navigate to="/admin/equipo/carga" replace />} />
+          <Route path="resumen" element={<Navigate to="/admin/reportes" replace />} />
+          <Route path="visitas-sede" element={<Navigate to="/admin/reportes/sedes" replace />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Routes>
+      </main>
+    </>
   )
 }

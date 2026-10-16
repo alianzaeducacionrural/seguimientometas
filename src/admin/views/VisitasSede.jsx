@@ -7,6 +7,7 @@ import { formatearFecha } from '../../utils/formato'
 import { AvisoError, Cargando, Vacio } from '../../components/Estado'
 import { abreviaturaProyecto, idsDeLista } from '../../utils/proyectos'
 import { colorPorId } from '../../utils/colores'
+import { descargarCsv } from '../../utils/csv'
 
 // Agrupada por sede (no una fila plana por visita): cada sede muestra
 // cuántas visitas tiene por proyecto ("Escuela Nueva: 3 visitas"), y al
@@ -126,6 +127,16 @@ export default function VisitasSede() {
     return orden.asc ? cmp : -cmp
   })
 
+  function exportarCsv() {
+    descargarCsv('visitas-por-sede', [
+      { titulo: 'Municipio', valor: (s) => s.municipio },
+      { titulo: 'Institución', valor: (s) => s.institucion },
+      { titulo: 'Sede', valor: (s) => s.sede },
+      ...proyectosConVisitas.map((p) => ({ titulo: p.nombre, valor: (s) => conteoPorProyecto(s)[String(p.id)] || 0 })),
+      { titulo: 'Total', valor: (s) => s.visitas.length },
+    ], sedes)
+  }
+
   function abrirSede(clave) {
     setSedeAbierta((actual) => (actual === clave ? null : clave))
     setProyectoAbierto(null)
@@ -133,7 +144,15 @@ export default function VisitasSede() {
 
   return (
     <section className="vista">
-      <h2>Visitas por sede</h2>
+      <div className="adm-cabecera">
+        <div>
+          <h2>Visitas por sede</h2>
+          <p className="adm-sub">Cuántas visitas tiene cada sede, por proyecto.</p>
+        </div>
+        <div className="adm-acciones">
+          <button type="button" onClick={exportarCsv} disabled={sedes.length === 0}>Exportar CSV</button>
+        </div>
+      </div>
 
       <div className="filtros">
         <select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)}>

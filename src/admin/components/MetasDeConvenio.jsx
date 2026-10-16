@@ -147,8 +147,7 @@ export default function MetasDeConvenio({ convenio }) {
       columnasExtra={[{
         label: '',
         render: (fila) => {
-          if (fila.tipo === 'visita_focalizada') return <Link to={`/admin/metas/${fila.id}`}>Focalización →</Link>
-          if (fila.tipo === 'visita_sin_focalizar') return <Link to={`/admin/metas/${fila.id}/asignaciones`}>Asignaciones →</Link>
+          if (fila.tipo !== 'otro_indicador') return <Link to={`/admin/visitas?meta=${fila.id}`}>Ver visitas →</Link>
           if (fila.tipo === 'otro_indicador') return <BotonRegistrarAvance meta={fila} onRegistrar={avancesManuales.crearItem} />
           return null
         },

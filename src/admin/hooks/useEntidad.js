@@ -65,6 +65,25 @@ export default function useEntidad(entidad) {
     recargar().catch(() => {})
   }
 
+  // Aplica los mismos cambios a varias filas (asignación en lote). Va una por
+  // una — el backend serializa las escrituras con un lock, así que mandarlas
+  // en paralelo solo haría fila de espera y arriesgaría el timeout del lock.
+  // Si una falla, las anteriores ya quedaron guardadas: se recarga para
+  // reflejar el estado real y se relanza el error.
+  async function editarItems(ids, campos, onProgreso) {
+    let hechos = 0
+    try {
+      for (const id of ids) {
+        await editar(entidad, id, campos)
+        onProgreso?.(++hechos, ids.length)
+      }
+    } finally {
+      const hechasIds = new Set(ids.slice(0, hechos).map(String))
+      setDatos((d) => d.map((x) => (hechasIds.has(String(x.id)) ? { ...x, ...campos } : x)))
+      recargar().catch(() => {})
+    }
+  }
+
   async function eliminarItem(id) {
     await eliminar(entidad, id)
     borradosRef.current.add(String(id))
@@ -73,5 +92,5 @@ export default function useEntidad(entidad) {
     recargar().catch(() => {})
   }
 
-  return { datos, cargando, error, crearItem, editarItem, eliminarItem, recargar }
+  return { datos, cargando, error, crearItem, editarItem, editarItems, eliminarItem, recargar }
 }
