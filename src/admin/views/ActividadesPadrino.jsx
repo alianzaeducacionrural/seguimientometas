@@ -26,6 +26,16 @@ export default function ActividadesPadrino() {
   const [proyectoId, setProyectoId] = useState('')
   const [estado, setEstado] = useState('')
   const [busqueda, setBusqueda] = useState('')
+  // 'realizadas' = solo lo hecho; 'proyectadas' = hecho + programado, para ver
+  // cuántas visitas le faltan realmente por programar a cada padrino.
+  const [modo, setModo] = useState('realizadas')
+  const proyectadas = modo === 'proyectadas'
+
+  function cambiarModo(nuevo) {
+    setModo(nuevo)
+    // Las columnas Programadas/Faltan solo existen en el modo proyectado.
+    setOrden((o) => (nuevo === 'realizadas' && ['programadas', 'faltan'].includes(o.columna) ? { columna: 'nombre', asc: true } : o))
+  }
 
   function ordenarPor(columna) {
     setOrden((actual) => (actual.columna === columna ? { columna, asc: !actual.asc } : { columna, asc: true }))
@@ -86,11 +96,13 @@ export default function ActividadesPadrino() {
       padrino,
       ...totalesDe(padrino.id, focVisibles, asigVisibles, metaPorId),
     }))
+    .map((fila) => ({ ...fila, faltan: fila.pendientes - fila.programadas }))
 
   // Visitas focalizadas todavía sin padrino asignado, para la fila destacada.
   const sinAsignarPend = ordenarPorProyecto(focDetalle.filter((f) => sinPadrino(f) && f.estado !== 'realizada'), proyectos.datos)
   const sinAsignarReal = ordenarPorProyecto(focDetalle.filter((f) => sinPadrino(f) && f.estado === 'realizada'), proyectos.datos)
   const sinAsignarTotal = sinAsignarPend.length + sinAsignarReal.length
+  const sinAsignarProg = sinAsignarPend.filter((f) => f.estado === 'programada').length
   const mostrarSinAsignar = sinAsignarTotal > 0 && coincideBusqueda(busqueda, 'Sin asignar')
   const sinAsignarAbierto = abiertoId === 'sin-asignar'
   const filasOrdenadas = [...filas].sort((a, b) => {
@@ -102,7 +114,20 @@ export default function ActividadesPadrino() {
 
   return (
     <section className="vista">
-      <h2>Actividades por padrino</h2>
+      <div className="adm-cabecera">
+        <div>
+          <h2>Actividades por padrino</h2>
+          <p className="adm-sub">Lo asignado, lo realizado y lo que falta por padrino; opcionalmente descontando lo ya programado.</p>
+        </div>
+        <div className="conmutador-vista" style={{ margin: 0 }} role="group" aria-label="Qué visitas contar">
+          <button type="button" className={!proyectadas ? 'btn-primario' : ''} onClick={() => cambiarModo('realizadas')}>
+            Solo realizadas
+          </button>
+          <button type="button" className={proyectadas ? 'btn-primario' : ''} onClick={() => cambiarModo('proyectadas')}>
+            Realizadas + programadas
+          </button>
+        </div>
+      </div>
 
       <div className="barra-filtros">
         <span className="barra-filtros__titulo">
@@ -147,7 +172,10 @@ export default function ActividadesPadrino() {
               <EncabezadoOrdenable columna="nombre" orden={orden} onOrdenar={ordenarPor}>Padrino</EncabezadoOrdenable>
               <EncabezadoOrdenable columna="asignadas" orden={orden} onOrdenar={ordenarPor} numero>Asignadas</EncabezadoOrdenable>
               <EncabezadoOrdenable columna="realizadas" orden={orden} onOrdenar={ordenarPor} numero>Realizadas</EncabezadoOrdenable>
-              <EncabezadoOrdenable columna="pendientes" orden={orden} onOrdenar={ordenarPor} numero>Pendientes</EncabezadoOrdenable>
+              {proyectadas && <EncabezadoOrdenable columna="programadas" orden={orden} onOrdenar={ordenarPor} numero>Programadas</EncabezadoOrdenable>}
+              {proyectadas
+                ? <EncabezadoOrdenable columna="faltan" orden={orden} onOrdenar={ordenarPor} numero title="Pendientes que todavía no tienen fecha">Faltan por programar</EncabezadoOrdenable>
+                : <EncabezadoOrdenable columna="pendientes" orden={orden} onOrdenar={ordenarPor} numero>Pendientes</EncabezadoOrdenable>}
               <th>Avance</th>
             </tr>
           </thead>
@@ -171,12 +199,13 @@ export default function ActividadesPadrino() {
                   </td>
                   <td className="numero">{sinAsignarTotal}</td>
                   <td className="numero">{sinAsignarReal.length}</td>
-                  <td className="numero">{sinAsignarPend.length}</td>
-                  <td><BarraApilada realizadas={sinAsignarReal.length} pendientes={sinAsignarPend.length} /></td>
+                  {proyectadas && <td className="numero">{sinAsignarProg}</td>}
+                  <td className="numero">{proyectadas ? sinAsignarPend.length - sinAsignarProg : sinAsignarPend.length}</td>
+                  <td><BarraApilada realizadas={sinAsignarReal.length} pendientes={sinAsignarPend.length} programadas={proyectadas ? sinAsignarProg : 0} /></td>
                 </tr>
                 {sinAsignarAbierto && (
                   <tr className="fila-panel">
-                    <td colSpan={6}>
+                    <td colSpan={proyectadas ? 7 : 6}>
                       <div className="panel-acordeon">
                         <ColumnasVisitas
                           pendientes={sinAsignarPend}
@@ -199,7 +228,7 @@ export default function ActividadesPadrino() {
                 )}
               </Fragment>
             )}
-            {filasOrdenadas.map(({ padrino, asignadas, realizadas, pendientes }) => {
+            {filasOrdenadas.map(({ padrino, asignadas, realizadas, pendientes, programadas, faltan }) => {
               const abierto = String(abiertoId) === String(padrino.id)
 
               const pendientesFocalizacion = ordenarPorProyecto(focDetalle.filter(
@@ -227,12 +256,13 @@ export default function ActividadesPadrino() {
                     </td>
                     <td className="numero">{asignadas}</td>
                     <td className="numero">{realizadas}</td>
-                    <td className="numero">{pendientes}</td>
-                    <td><BarraApilada realizadas={realizadas} pendientes={pendientes} /></td>
+                    {proyectadas && <td className="numero">{programadas}</td>}
+                    <td className="numero">{proyectadas ? faltan : pendientes}</td>
+                    <td><BarraApilada realizadas={realizadas} pendientes={pendientes} programadas={proyectadas ? programadas : 0} /></td>
                   </tr>
                   {abierto && (
                     <tr className="fila-panel">
-                      <td colSpan={6}>
+                      <td colSpan={proyectadas ? 7 : 6}>
                         <div className="panel-acordeon">
                           <ColumnasVisitas
                             pendientes={pendientesFocalizacion}

@@ -150,16 +150,20 @@ export function BarrasH({ items, vacio = 'Sin datos todavía.' }) {
 }
 
 // Barra apilada realizadas / pendientes con el % de realizadas al lado.
-export function BarraApilada({ realizadas, pendientes }) {
+// Con `programadas` (>0) añade un tramo a rayas y el % pasa a ser el proyectado.
+export function BarraApilada({ realizadas, pendientes, programadas = 0 }) {
   const listo = useCrece()
   const total = realizadas + pendientes
-  const p = total > 0 ? Math.round((realizadas / total) * 100) : 0
+  const pct = (n) => (total > 0 ? Math.round((n / total) * 100) : 0)
+  const p = pct(realizadas)
+  const pp = pct(realizadas + programadas)
   return (
-    <span className="barra-apilada" title={`${realizadas} realizadas · ${pendientes} pendientes`}>
+    <span className="barra-apilada" title={`${realizadas} realizadas · ${programadas} programadas · ${pendientes - programadas} sin programar`}>
       <span className="barra-apilada__pista">
         <span className="barra-apilada__ok" style={{ width: listo ? `${p}%` : 0 }} />
+        {programadas > 0 && <span className="barra-apilada__prog" style={{ width: listo ? `${pp - p}%` : 0 }} />}
       </span>
-      <b>{p}%</b>
+      <b>{programadas > 0 ? pp : p}%</b>
     </span>
   )
 }

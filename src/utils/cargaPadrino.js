@@ -26,7 +26,12 @@ export function totalesDe(padrinoId, focalizacion, asignaciones, metaPorId) {
   const realizadas = focPreasignada.filter((f) => f.estado === 'realizada').length
     + focSinFocalizarRegistrada.filter((f) => f.estado === 'realizada').length
 
-  return { asignadas, realizadas, pendientes: asignadas - realizadas }
+  const pendientes = asignadas - realizadas
+  // Programadas: las ya con fecha, acotadas a lo pendiente (una cuota sin
+  // registrar no puede tener más programadas que pendientes).
+  const programadas = Math.min(focDelPadrino.filter((f) => f.estado === 'programada').length, Math.max(pendientes, 0))
+
+  return { asignadas, realizadas, pendientes, programadas }
 }
 
 // Enriquece una focalización/asignación con el nombre del convenio, la
